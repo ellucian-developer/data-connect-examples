@@ -1,0 +1,75 @@
+{
+  "name": "persons-import",
+  "parameters": [
+    {
+      "name": "fileName",
+      "type": "string",
+      "default": "persons.csv",
+      "required": true
+    }
+  ],
+  "pipeline": [
+    "setup",
+    "File Reader",
+    "Line Parser",
+    "Delimited Parser",
+    "map-persons",
+    "Reducer",
+    "Stringify",
+    "File Writer"
+  ],
+  "segments": {
+    "setup": {
+      "class": "JavaScriptTransform",
+      "config": {
+        "pushUndefined": true,
+        "stopOnError": false,
+        "draft": false,
+        "code": "function transform (message, context) {\n  context.set('importDate', Date.now())\n  return message;\n}\n"
+      }
+    },
+    "File Reader": {
+      "class": "S3Accessor",
+      "config": {
+        "key": "persons.csv",
+        "errorIfNoFile": false
+      }
+    },
+    "Line Parser": {
+      "class": "lineParser"
+    },
+    "Delimited Parser": {
+      "class": "delimitedParser",
+      "config": {
+        "dynamicTyping": false
+      }
+    },
+    "map-persons": {
+      "class": "JavaScriptTransform",
+      "config": {
+        "pushUndefined": true,
+        "stopOnError": false,
+        "draft": false,
+        "code": "function transform (message, context) {\n  const { payload } = message;\n  const importDate = new Date(context.get('importDate')).toISOString();\n\n  const dateFormatter = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium'});\n  const newPayload = {\n    firstName: payload['First Name'],\n    middleName: payload['Middle Name'],\n    lastName: payload['Last Name'],\n    fullName: payload['Full Name'],\n    dateOfBirth: payload['Date of Birth'],\n    dateOfBirthFormatted: payload['Date of Birth'] ? dateFormatter.format(new Date(payload['Date of Birth'])) : '',\n    gender: payload['Gender'],\n    race: payload['Race'],\n    ethnicity: payload['Ethnicity'],\n    importDate\n  }\n  \n  return {\n    payload: newPayload\n  };\n}\n"
+      }
+    },
+    "Reducer": {
+      "class": "reducer",
+      "config": {
+        "accumulator": "persons"
+      }
+    },
+    "Stringify": {
+      "class": "stringify"
+    },
+    "File Writer": {
+      "class": "s3sink",
+      "config": {
+        "key": "personsImport.json",
+        "addNewlineAfterEachMessage": true,
+        "includeTotalCount": true,
+        "generatePresignedUrl": true
+      }
+    }
+  }
+}

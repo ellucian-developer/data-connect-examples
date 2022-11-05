@@ -1,0 +1,307 @@
+{
+  "name": "persons-cn-export",
+  "parameters": [
+    {
+      "name": "ethosApiKey",
+      "type": "string",
+      "label": "Api Key",
+      "required": true,
+      "sensitive": true
+    },
+    {
+      "name": "fileName",
+      "type": "string",
+      "label": "Export File Name",
+      "default": "persons.csv",
+      "required": true,
+      "sensitive": false
+    }
+  ],
+  "pipeline": [
+    "setup",
+    "Consume Change Notification for persons",
+    "Extract Person",
+    "mark-cn-for-confirmation",
+    "Delimited Formatter",
+    "Stringify",
+    "File Writer",
+    "get-last-processed-id",
+    "Ethos Consume Confirm"
+  ],
+  "segments": {
+    "setup": {
+      "class": "JavaScriptTransform",
+      "config": {
+        "pushUndefined": true,
+        "stopOnError": false,
+        "draft": false,
+        "code": "function transform(message, context) {\n  const fileName = context.get('fileName');\n\n  const pipelineName = context.get('__pipelineName');\n  const runId = context.get('__runId');\n  const s3FileName = `${pipelineName}/${runId}/${fileName}`;\n  context.set('s3FileName', s3FileName);\n\n  console.log(`s3FileName: ${s3FileName}`);\n\n  return message;\n}\n"
+      }
+    },
+    "Consume Change Notification for persons": {
+      "class": "ethosConsumeChangeNotifications",
+      "config": {
+        "resources": [
+          {
+            "name": "persons",
+            "supportedVersions": [
+              "12"
+            ]
+          }
+        ],
+        "ignoreErrors": false,
+        "errorPath": "error"
+      }
+    },
+    "Extract Person": {
+      "class": "objectMapper",
+      "config": {
+        "ignoreUndefined": false,
+        "keepOriginal": false,
+        "mapping": [
+          {
+            "source": [
+              {
+                "path": "$.id",
+                "default": "",
+                "isArray": false
+              }
+            ],
+            "target": "cnId"
+          },
+          {
+            "source": [
+              {
+                "path": "$.content.names",
+                "default": "",
+                "isArray": false
+              }
+            ],
+            "target": "_name",
+            "transform": [
+              {
+                "name": "array.find",
+                "params": [
+                  "preferred",
+                  "$.preference"
+                ]
+              }
+            ]
+          },
+          {
+            "source": [
+              {
+                "path": "",
+                "default": "{{mapped._name}}",
+                "isArray": false
+              }
+            ],
+            "target": "First Name",
+            "transform": [
+              {
+                "name": "object.get",
+                "params": [
+                  "$.firstName"
+                ]
+              },
+              {
+                "name": "string.trimTruncate",
+                "params": [
+                  "60"
+                ]
+              }
+            ]
+          },
+          {
+            "source": [
+              {
+                "path": "",
+                "default": "{{mapped._name}}",
+                "isArray": false
+              }
+            ],
+            "target": "Middle Name",
+            "transform": [
+              {
+                "name": "object.get",
+                "params": [
+                  "$.middleName"
+                ]
+              },
+              {
+                "name": "string.trimTruncate",
+                "params": [
+                  "60"
+                ]
+              }
+            ]
+          },
+          {
+            "source": [
+              {
+                "path": "",
+                "default": "{{mapped._name}}",
+                "isArray": false
+              }
+            ],
+            "target": "Last Name",
+            "transform": [
+              {
+                "name": "object.get",
+                "params": [
+                  "$.lastName"
+                ]
+              },
+              {
+                "name": "string.trimTruncate",
+                "params": [
+                  "60"
+                ]
+              }
+            ]
+          },
+          {
+            "source": [
+              {
+                "path": "",
+                "default": "{{mapped._name}}",
+                "isArray": false
+              }
+            ],
+            "target": "Full Name",
+            "transform": [
+              {
+                "name": "object.get",
+                "params": [
+                  "$.fullName"
+                ]
+              },
+              {
+                "name": "string.trimTruncate",
+                "params": [
+                  "60"
+                ]
+              }
+            ]
+          },
+          {
+            "source": [
+              {
+                "path": "$.content.dateOfBirth",
+                "default": "",
+                "isArray": false
+              }
+            ],
+            "target": "Date of Birth",
+            "transform": [
+              {
+                "name": "date.toISOString"
+              }
+            ]
+          },
+          {
+            "source": [
+              {
+                "path": "$.content.ethnicity.reporting[0].country.ethnicCategory",
+                "default": "",
+                "isArray": false
+              }
+            ],
+            "target": "Ethnicity"
+          },
+          {
+            "source": [
+              {
+                "path": "$.content.races[*].reporting[0].country.racialCategory",
+                "default": "",
+                "isArray": false
+              }
+            ],
+            "target": "Race",
+            "transform": [
+              {
+                "name": "array.join",
+                "params": [
+                  "|"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "mark-cn-for-confirmation": {
+      "class": "JavaScriptTransform",
+      "config": {
+        "pushUndefined": true,
+        "stopOnError": false,
+        "draft": false,
+        "code": "function transform (message, context) {\n  const { payload: { cnId } } = message;\n\n  context.set(`cnId${cnId}Status`, 'confirm');\n\n  return message;\n}\n"
+      }
+    },
+    "Delimited Formatter": {
+      "class": "delimitedFormatter",
+      "config": {
+        "normalizeColumns": false,
+        "detail": {
+          "columns": [
+            {
+              "path": "First Name"
+            },
+            {
+              "path": "Middle Name"
+            },
+            {
+              "path": "Last Name"
+            },
+            {
+              "path": "Full Name"
+            },
+            {
+              "path": "gender",
+              "label": "Gender"
+            },
+            {
+              "path": "Ethnicity"
+            },
+            {
+              "path": "Race"
+            },
+            {
+              "path": "Date of Birth"
+            }
+          ],
+          "columnHeaders": true
+        }
+      }
+    },
+    "Stringify": {
+      "class": "stringify"
+    },
+    "File Writer": {
+      "class": "s3sink",
+      "config": {
+        "key": "personsReport.csv",
+        "addNewlineAfterEachMessage": true,
+        "includeTotalCount": false,
+        "generatePresignedUrl": true
+      }
+    },
+    "get-last-processed-id": {
+      "class": "JavaScriptTransform",
+      "config": {
+        "pushUndefined": true,
+        "stopOnError": false,
+        "draft": false,
+        "code": "function transform(message, context) {\n  let lastProcessedId;\n\n  for (const key of context.keys()) {\n    const match = key.match(/cnId(\\d*)Status/)\n    if (match) {\n      lastProcessedId = lastProcessedId === undefined ? match[1] : Math.max(lastProcessedId, match[1]);\n    }\n  }\n\n  if (lastProcessedId) {\n    context.set('lastProcessedId', lastProcessedId);\n  }\n\n  return message;\n} "
+      }
+    },
+    "Ethos Consume Confirm": {
+      "class": "ethosConsumeConfirm",
+      "config": {
+        "lastProcessedId": "{{context.lastProcessedId}}",
+        "ignoreErrors": false
+      }
+    }
+  }
+}

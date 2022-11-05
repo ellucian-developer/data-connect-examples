@@ -1,0 +1,251 @@
+{
+  "name": "persons-export",
+  "parameters": [
+    {
+      "name": "ethosApiKey",
+      "type": "string",
+      "label": "Api Key",
+      "required": true,
+      "sensitive": true
+    }
+  ],
+  "pipeline": [
+    "Get Persons",
+    "For Each Person",
+    "Object Mapper",
+    "Delimited Formatter",
+    "Stringify",
+    "File Writer"
+  ],
+  "segments": {
+    "Get Persons": {
+      "class": "ethosProxyGet",
+      "config": {
+        "resource": "persons",
+        "acceptVersions": [
+          "12"
+        ],
+        "cache": false,
+        "ignoreErrors": false
+      }
+    },
+    "For Each Person": {
+      "class": "forEach"
+    },
+    "Object Mapper": {
+      "class": "objectMapper",
+      "config": {
+        "ignoreUndefined": false,
+        "keepOriginal": true,
+        "mapping": [
+          {
+            "source": [
+              {
+                "path": "$.names",
+                "default": "",
+                "isArray": false
+              }
+            ],
+            "target": "_name",
+            "transform": [
+              {
+                "name": "array.find",
+                "params": [
+                  "preferred",
+                  "$.preference"
+                ]
+              }
+            ]
+          },
+          {
+            "source": [
+              {
+                "path": "",
+                "default": "{{mapped._name}}",
+                "isArray": false
+              }
+            ],
+            "target": "First Name",
+            "transform": [
+              {
+                "name": "object.get",
+                "params": [
+                  "$.firstName"
+                ]
+              },
+              {
+                "name": "string.trimTruncate",
+                "params": [
+                  "60"
+                ]
+              }
+            ]
+          },
+          {
+            "source": [
+              {
+                "path": "",
+                "default": "{{mapped._name}}",
+                "isArray": false
+              }
+            ],
+            "target": "Middle Name",
+            "transform": [
+              {
+                "name": "object.get",
+                "params": [
+                  "$.middleName"
+                ]
+              },
+              {
+                "name": "string.trimTruncate",
+                "params": [
+                  "60"
+                ]
+              }
+            ]
+          },
+          {
+            "source": [
+              {
+                "path": "",
+                "default": "{{mapped._name}}",
+                "isArray": false
+              }
+            ],
+            "target": "Last Name",
+            "transform": [
+              {
+                "name": "object.get",
+                "params": [
+                  "$.lastName"
+                ]
+              },
+              {
+                "name": "string.trimTruncate",
+                "params": [
+                  "60"
+                ]
+              }
+            ]
+          },
+          {
+            "source": [
+              {
+                "path": "",
+                "default": "{{mapped._name}}",
+                "isArray": false
+              }
+            ],
+            "target": "Full Name",
+            "transform": [
+              {
+                "name": "object.get",
+                "params": [
+                  "$.fullName"
+                ]
+              },
+              {
+                "name": "string.trimTruncate",
+                "params": [
+                  "60"
+                ]
+              }
+            ]
+          },
+          {
+            "source": [
+              {
+                "path": "$.dateOfBirth",
+                "default": "",
+                "isArray": false
+              }
+            ],
+            "target": "Date of Birth",
+            "transform": [
+              {
+                "name": "date.toISOString"
+              }
+            ]
+          },
+          {
+            "source": [
+              {
+                "path": "$.ethnicity.reporting[0].country.ethnicCategory",
+                "default": "",
+                "isArray": false
+              }
+            ],
+            "target": "Ethnicity"
+          },
+          {
+            "source": [
+              {
+                "path": "$.races[*].reporting[0].country.racialCategory",
+                "default": "",
+                "isArray": false
+              }
+            ],
+            "target": "Race",
+            "transform": [
+              {
+                "name": "array.join",
+                "params": [
+                  "|"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "Delimited Formatter": {
+      "class": "delimitedFormatter",
+      "config": {
+        "normalizeColumns": false,
+        "detail": {
+          "columns": [
+            {
+              "path": "First Name"
+            },
+            {
+              "path": "Middle Name"
+            },
+            {
+              "path": "Last Name"
+            },
+            {
+              "path": "Full Name"
+            },
+            {
+              "path": "gender",
+              "label": "Gender"
+            },
+            {
+              "path": "Ethnicity"
+            },
+            {
+              "path": "Race"
+            },
+            {
+              "path": "Date of Birth"
+            }
+          ],
+          "columnHeaders": true
+        }
+      }
+    },
+    "Stringify": {
+      "class": "stringify"
+    },
+    "File Writer": {
+      "class": "s3sink",
+      "config": {
+        "key": "personsReport.csv",
+        "addNewlineAfterEachMessage": true,
+        "includeTotalCount": false,
+        "generatePresignedUrl": true
+      }
+    }
+  }
+}

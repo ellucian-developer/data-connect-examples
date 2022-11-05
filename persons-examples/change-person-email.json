@@ -1,0 +1,68 @@
+{
+  "name": "change-person-email",
+  "parameters": [
+    {
+      "name": "ethosApiKey",
+      "type": "string",
+      "sensitive": true
+    },
+    {
+      "name": "bannerId",
+      "type": "string",
+      "required": true
+    },
+    {
+      "name": "emailType",
+      "type": "string",
+      "default": "business",
+      "required": true
+    },
+    {
+      "name": "newEmail",
+      "type": "string",
+      "required": true
+    }
+  ],
+  "pipeline": [
+    "Get Person",
+    "compose-put-body",
+    "Put Person - update email"
+  ],
+  "segments": {
+    "Get Person": {
+      "class": "ethosProxyGetFilter",
+      "config": {
+        "resource": "persons",
+        "filter": "criteria={\"credentials\":[{\"type\":\"bannerId\",\"value\":\"{{context.bannerId}}\"}]}",
+        "acceptVersions": [
+          "12"
+        ],
+        "cache": false,
+        "queryByPost": false,
+        "ignoreErrors": false
+      }
+    },
+    "compose-put-body": {
+      "class": "JavaScriptTransform",
+      "config": {
+        "pushUndefined": true,
+        "stopOnError": false,
+        "draft": false,
+        "code": "function transform (message, context) {\n  const { payload: persons } = message;\n  const emailType = context.get('emailType');\n  const newEmail = context.get('newEmail');\n\n  // should be just one\n  if (persons.length !== 1) {\n    throw new Error(`Expecting one person from bannerId: ${context.get('bannerId')}`);\n  }\n\n  const person = persons[0];\n\n  const putBody = {\n    emails: person.emails,\n    id: person.id,\n    names: person.names\n  }\n\n  // update the email address\n  const email = putBody.emails.find(email => email.type.emailType === emailType);\n\n  if (!email) {\n    throw new Error(`Email type: ${emailType} not found`);\n  }\n\n  email.address = newEmail;\n\n  return {\n    payload: {\n      putBody\n    }\n  };\n}\n"
+      }
+    },
+    "Put Person - update email": {
+      "class": "ethosProxyPut",
+      "config": {
+        "resource": "persons",
+        "contentVersion": "12",
+        "acceptVersion": "12",
+        "idFromPayload": "$.putBody.id",
+        "target": "putResult",
+        "bodyPath": "$.putBody",
+        "ignoreErrors": false,
+        "errorPath": "putError"
+      }
+    }
+  }
+}
