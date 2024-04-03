@@ -1,0 +1,28 @@
+{
+  "name": "star-trek-custom-table",
+  "pipeline": [
+    "Create Table"
+  ],
+  "segments": {
+    "Create Table": {
+      "class": "createTable",
+      "config": {
+        "tableName": "student_episodes",
+        "tableColumns": [
+          {
+            "name": "episode_title",
+            "type": "character varying(100)",
+            "nullable": false
+          },
+          {
+            "name": "student_name",
+            "type": "character varying(100)",
+            "nullable": false
+          }
+        ],
+        "drop": false,
+        "ignoreErrors": false
+      }
+    }
+  }
+}

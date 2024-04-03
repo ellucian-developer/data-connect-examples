@@ -1,0 +1,80 @@
+season,number_in_season,number_overall,title,directed_by,original_air_date,prod_code
+1,1,1,The Man Trap,Marc Daniels,"September 8, 1966",6
+1,2,2,Charlie X,Lawrence Dobkin,"September 15, 1966",8
+1,3,3,Where No Man Has Gone Before,James Goldstone,"September 22, 1966",02b
+1,4,4,The Naked Time,Marc Daniels,"September 29, 1966",7
+1,5,5,The Enemy Within,Leo Penn,"October 6, 1966",5
+1,6,6,Mudd's Women,Harvey Hart,"October 13, 1966",4
+1,7,7,What Are Little Girls Made Of?,James Goldstone,"October 20, 1966",10
+1,8,8,Miri,Vincent McEveety,"October 27, 1966",12
+1,9,9,Dagger of the Mind,Vincent McEveety,"November 3, 1966",11
+1,10,10,The Corbomite Maneuver,Joseph Sargent,"November 10, 1966",3
+1,11,11,The Menagerie,Marc Daniels,"November 17, 1966",16
+1,12,12,The Menagerie,Robert Butler,"November 24, 1966",16
+1,13,13,The Conscience of the King,Gerd Oswald,"December 8, 1966",13
+1,14,14,Balance of Terror,Vincent McEveety,"December 15, 1966",9
+1,15,15,Shore Leave,Robert Sparr,"December 29, 1966",17
+1,16,16,The Galileo Seven,Robert Gist,"January 5, 1967",14
+1,17,17,The Squire of Gothos,Don McDougall,"January 12, 1967",18
+1,18,18,Arena,Joseph Pevney,"January 19, 1967",19
+1,19,19,Tomorrow Is Yesterday,Michael O'Herlihy,"January 26, 1967",21
+1,20,20,Court Martial,Marc Daniels,"February 2, 1967",15
+1,21,21,The Return of the Archons,Joseph Pevney,"February 9, 1967",22
+1,22,22,Space Seed,Marc Daniels,"February 16, 1967",24
+1,23,23,A Taste of Armageddon,Joseph Pevney,"February 23, 1967",23
+1,24,24,This Side of Paradise,Ralph Senensky,"March 2, 1967",25
+1,25,25,The Devil in the Dark,Joseph Pevney,"March 9, 1967",26
+1,26,26,Errand of Mercy,John Newland,"March 23, 1967",27
+1,27,27,The Alternative Factor,Gerd Oswald,"March 30, 1967",20
+1,28,28,The City on the Edge of Forever,Joseph Pevney,"April 6, 1967",28
+1,29,29,Operation -- Annihilate!,Herschel Daugherty,"April 13, 1967",29
+2,1,30,Amok Time,Joseph Pevney,"September 15, 1967",34
+2,2,31,Who Mourns for Adonais?,Marc Daniels,"September 22, 1967",33
+2,3,32,The Changeling,Marc Daniels,"September 29, 1967",37
+2,4,33,"Mirror, Mirror",Marc Daniels,"October 6, 1967",39
+2,5,34,The Apple,Joseph Pevney,"October 13, 1967",38
+2,6,35,The Doomsday Machine,Marc Daniels,"October 20, 1967",35
+2,7,36,Catspaw,Joseph Pevney,"October 27, 1967",30
+2,8,37,"I, Mudd",Marc Daniels,"November 3, 1967",41
+2,9,38,Metamorphosis,Ralph Senensky,"November 10, 1967",31
+2,10,39,Journey to Babel,Joseph Pevney,"November 17, 1967",44
+2,11,40,Friday's Child,Joseph Pevney,"December 1, 1967",32
+2,12,41,The Deadly Years,Joseph Pevney,"December 8, 1967",40
+2,13,42,Obsession,Ralph Senensky,"December 15, 1967",47
+2,14,43,Wolf in the Fold,Joseph Pevney,"December 22, 1967",36
+2,15,44,The Trouble with Tribbles,Joseph Pevney,"December 29, 1967",42
+2,16,45,The Gamesters of Triskelion,Gene Nelson,"January 5, 1968",46
+2,17,46,A Piece of the Action,James Komack,"January 12, 1968",49
+2,18,47,The Immunity Syndrome,Joseph Pevney,"January 19, 1968",48
+2,19,48,A Private Little War,Marc Daniels,"February 2, 1968",45
+2,20,49,Return to Tomorrow,Ralph Senensky,"February 9, 1968",51
+2,21,50,Patterns of Force,Vincent McEveety,"February 16, 1968",52
+2,22,51,By Any Other Name,Marc Daniels,"February 23, 1968",50
+2,23,52,The Omega Glory,Vincent McEveety,"March 1, 1968",54
+2,24,53,The Ultimate Computer,John Meredyth Lucas,"March 8, 1968",53
+2,25,54,Bread and Circuses,Ralph Senensky,"March 15, 1968",43
+2,26,55,Assignment: Earth,Marc Daniels,"March 29, 1968",55
+3,1,56,Spock's Brain,Marc Daniels,"September 20, 1968",61
+3,2,57,The Enterprise Incident,John Meredyth Lucas,"September 27, 1968",59
+3,3,58,The Paradise Syndrome,Jud Taylor,"October 4, 1968",58
+3,4,59,And the Children Shall Lead,Marvin Chomsky,"October 11, 1968",60
+3,5,60,Is There in Truth No Beauty?,Ralph Senensky,"October 18, 1968",62
+3,6,61,Spectre of the Gun,Vincent McEveety,"October 25, 1968",56
+3,7,62,Day of the Dove,Marvin Chomsky,"November 1, 1968",66
+3,8,63,For the World Is Hollow and I Have Touched the Sky,Tony Leader,"November 8, 1968",65
+3,9,64,The Tholian Web,Herb Wallerstein,"November 15, 1968",64
+3,10,65,Plato's Stepchildren,David Alexander,"November 22, 1968",67
+3,11,66,Wink of an Eye,Jud Taylor,"November 29, 1968",68
+3,12,67,The Empath,John Erman,"December 6, 1968",63
+3,13,68,Elaan of Troyius,John Meredyth Lucas,"December 20, 1968",57
+3,14,69,Whom Gods Destroy,Herb Wallerstein,"January 3, 1969",71
+3,15,70,Let That Be Your Last Battlefield,Jud Taylor,"January 10, 1969",70
+3,16,71,The Mark of Gideon,Jud Taylor,"January 17, 1969",72
+3,17,72,That Which Survives,Herb Wallerstein,"January 24, 1969",69
+3,18,73,The Lights of Zetar,Herb Kenwith,"January 31, 1969",73
+3,19,74,Requiem for Methuselah,Murray Golden,"February 14, 1969",76
+3,20,75,The Way to Eden,David Alexander,"February 21, 1969",75
+3,21,76,The Cloud Minders,Jud Taylor,"February 28, 1969",74
+3,22,77,The Savage Curtain,Herschel Daugherty,"March 7, 1969",77
+3,23,78,All Our Yesterdays,Marvin Chomsky,"March 14, 1969",78
+3,24,79,Turnabout Intruder,Herb Wallerstein,"June 3, 1969",79

@@ -1,0 +1,29 @@
+{
+  "name": "star-trek-custom-transformation",
+  "pipeline": [
+    "Intermediate SQL",
+    "Target SQL"
+  ],
+  "segments": {
+    "Intermediate SQL": {
+      "class": "intermediateSql",
+      "config": {
+        "alias": "trekkies",
+        "indexColumns": [
+          "person_uid"
+        ],
+        "debugMode": false,
+        "sql": "select\n   distinct study.person_uid,\n   study.program,\n   study.program_desc,\n   spriden.spriden_first_name,\n   spriden.spriden_last_name\nfrom\n   academic_study study,\n   spriden spriden\nwhere\n   spriden.spriden_pidm = person_uid AND\n   study.program = 'BS_COMPSCI'",
+        "ignoreErrors": false
+      }
+    },
+    "Target SQL": {
+      "class": "targetSql",
+      "config": {
+        "target": "student_episodes",
+        "sql": "SELECT\n  custom_insights.random_star_trek_episode() as episode_title,\n  (tr.spriden_last_name || ', ' || tr.spriden_first_name) as student_name\nFROM\n  $trekkies tr",
+        "ignoreErrors": false
+      }
+    }
+  }
+}
