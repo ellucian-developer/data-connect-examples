@@ -1,0 +1,19 @@
+{
+  "name": "star-trek-custom-function",
+  "pipeline": [
+    "Create Function"
+  ],
+  "segments": {
+    "Create Function": {
+      "class": "createFunction",
+      "config": {
+        "functionName": "random_star_trek_episode",
+        "replace": true,
+        "returnType": "VARCHAR(100)",
+        "bodyStatement": "DECLARE\r\n    episode_title VARCHAR(100);\r\nBEGIN\r\n  SELECT title INTO episode_title\r\n  FROM star_trek_episodes\r\n  ORDER BY random()\r\n  LIMIT 1;\r\n  RETURN episode_title;\r\nEND;",
+        "drop": false,
+        "ignoreErrors": false
+      }
+    }
+  }
+}

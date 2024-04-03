@@ -1,0 +1,76 @@
+{
+  "name": "stark-trek-custom-import",
+  "parameters": [
+    {
+      "name": "file",
+      "type": "file",
+      "required": true
+    }
+  ],
+  "pipeline": [
+    "File Reader",
+    "Line Parser",
+    "External Data"
+  ],
+  "segments": {
+    "File Reader": {
+      "class": "S3Accessor",
+      "config": {
+        "key": "{{context.file}}",
+        "errorIfNoFile": false
+      }
+    },
+    "Line Parser": {
+      "class": "lineParser"
+    },
+    "External Data": {
+      "class": "dataLakeWriter",
+      "config": {
+        "dataSourceName": "Wikipedia",
+        "dataSetTemplateName": "Star Trek Data",
+        "useCSVFile": true,
+        "appendMode": false,
+        "table": {
+          "tableName": "star_trek_episodes",
+          "tableColumns": [
+            {
+              "name": "season",
+              "type": "numeric",
+              "nullable": false
+            },
+            {
+              "name": "number_in_season",
+              "type": "numeric",
+              "nullable": false
+            },
+            {
+              "name": "number_overall",
+              "type": "numeric",
+              "nullable": false
+            },
+            {
+              "name": "title",
+              "type": "character varying(100)",
+              "nullable": false
+            },
+            {
+              "name": "directed_by",
+              "type": "character varying(50)",
+              "nullable": false
+            },
+            {
+              "name": "original_air_date",
+              "type": "character varying(50)",
+              "nullable": false
+            },
+            {
+              "name": "prod_code",
+              "type": "character varying(5)",
+              "nullable": false
+            }
+          ]
+        }
+      }
+    }
+  }
+}
