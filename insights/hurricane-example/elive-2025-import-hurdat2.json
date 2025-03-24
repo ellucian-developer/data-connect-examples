@@ -1,0 +1,138 @@
+{
+  "name": "elive-2025-import-hurdat2",
+  "parameters": [
+    {
+      "name": "file",
+      "type": "string",
+      "default": "hurdat2-1851-2023-051124.txt",
+      "required": true
+    },
+    {
+      "name": "limit",
+      "type": "number",
+      "required": true,
+      "default": 30
+    }
+  ],
+  "pipeline": [
+    "File Reader",
+    "Reducer",
+    "JavaScript Transform",
+    "For Each",
+    "External Data"
+  ],
+  "segments": {
+    "File Reader": {
+      "class": "S3Accessor",
+      "config": {
+        "key": "{{context.file}}",
+        "binary": false,
+        "errorIfNoFile": false
+      }
+    },
+    "Reducer": {
+      "class": "reducer",
+      "config": {
+        "accumulator": "payload.lines"
+      }
+    },
+    "JavaScript Transform": {
+      "class": "JavaScriptTransform",
+      "config": {
+        "pushUndefined": false,
+        "stopOnError": false,
+        "draft": false,
+        "code": "function transform (message, context) {\n  const data = message.payload.lines.join('').trim().split('\\n');\n  const storms = [];\n  let lastStorm;\n  data.forEach(line => {\n    if (line.startsWith('AL')) {\n      lastStorm = {\n        basin: line.slice(0, 2),\n        number: parseInt(line.slice(2, 4)),\n        year: line.slice(4, 8),\n        name: line.slice(18, 28).trim()\n      }\n      storms.push(lastStorm)\n    } else if (line.includes(' L,')) {\n/*\n29.1 (Spaces 24-27) – Latitude\nN (Space 28, before 5th comma) – Hemisphere – North or South\n90.2 (Spaces 31-35) – Longitude\nW (Space 36, before 6th comma) – Hemisphere – West or East\n130 (Spaces 39-41, before 7th comma) – Maximum sustained wind (in knots)\n931 (Spaces 44-47, before 8th comma) – Minimum Pressure (in millibars)\n*/\n      if (lastStorm.landfall) {\n        lastStorm = {\n          basin: lastStorm.basin,\n          number: lastStorm.number,\n          name: lastStorm.name,\n          year: lastStorm.year\n        }\n        storms.push(lastStorm);\n      }\n      lastStorm.landfall = true;\n      lastStorm.lat = line.slice(23, 28).trim()\n      lastStorm.lon = line.slice(30, 36).trim()\n      lastStorm.wind = parseInt(line.slice(38, 42).trim())\n      lastStorm.pressure = parseInt(line.slice(43, 48).trim())\n    }\n  })\n  \n  const limit = parseInt(context.get('limit'));\n  message.payload = { storms: storms.filter(s => s.landfall).slice(-1 * limit) }\n\n  return message;\n}\n"
+      }
+    },
+    "For Each": {
+      "class": "forEach",
+      "config": {
+        "source": "payload.storms"
+      }
+    },
+    "External Data": {
+      "class": "dataLakeWriter",
+      "config": {
+        "dataSourceName": "noaa",
+        "dataSetTemplateName": "hurdat2",
+        "useCSVFile": false,
+        "appendMode": false,
+        "detail": {
+          "columnHeaders": true,
+          "columns": [
+            {
+              "path": "name"
+            },
+            {
+              "path": "basin"
+            },
+            {
+              "path": "year"
+            },
+            {
+              "path": "number"
+            },
+            {
+              "path": "lat"
+            },
+            {
+              "path": "lon"
+            },
+            {
+              "path": "wind"
+            },
+            {
+              "path": "pressure"
+            }
+          ]
+        },
+        "table": {
+          "tableName": "hurdat2",
+          "tableColumns": [
+            {
+              "name": "name",
+              "type": "character varying(50)",
+              "nullable": true
+            },
+            {
+              "name": "basin",
+              "type": "character varying(2)",
+              "nullable": false
+            },
+            {
+              "name": "year",
+              "type": "character varying(4)",
+              "nullable": false
+            },
+            {
+              "name": "number",
+              "type": "numeric",
+              "nullable": false
+            },
+            {
+              "name": "lat",
+              "type": "character varying(10)",
+              "nullable": true
+            },
+            {
+              "name": "lon",
+              "type": "character varying(10)",
+              "nullable": true
+            },
+            {
+              "name": "wind",
+              "type": "numeric",
+              "nullable": false
+            },
+            {
+              "name": "pressure",
+              "type": "numeric",
+              "nullable": false
+            }
+          ]
+        }
+      }
+    }
+  }
+}

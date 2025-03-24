@@ -1,0 +1,61 @@
+{
+  "name": "elive-2025-hurricane-students",
+  "pipeline": [
+    "Create Table",
+    "Create Function",
+    "Target SQL"
+  ],
+  "segments": {
+    "Create Table": {
+      "class": "createTable",
+      "config": {
+        "tableName": "hurricane_students",
+        "tableColumns": [
+          {
+            "name": "storm_name",
+            "type": "character varying(50)",
+            "nullable": false
+          },
+          {
+            "name": "storm_year",
+            "type": "character varying(4)",
+            "nullable": false
+          },
+          {
+            "name": "storm_proximity",
+            "type": "numeric",
+            "nullable": false
+          },
+          {
+            "name": "student_name",
+            "type": "character varying(50)",
+            "nullable": false
+          }
+        ],
+        "drop": false,
+        "ignoreErrors": false
+      }
+    },
+    "Create Function": {
+      "class": "createFunction",
+      "config": {
+        "functionName": "closest_landfall_distance_from_orlando",
+        "replace": true,
+        "argumentStatement": "storm_name TEXT",
+        "returnType": "numeric",
+        "bodyStatement": "DECLARE\r\n    closest_distance DOUBLE PRECISION;\r\nBEGIN\r\n    SELECT \r\n        MIN(\r\n            3958.8 * acos(\r\n                cos(radians(28.5)) * cos(radians(\r\n                    CASE \r\n                        WHEN lat LIKE '%N' THEN CAST(LEFT(lat, LENGTH(lat) - 1) AS FLOAT)\r\n                        WHEN lat LIKE '%S' THEN -CAST(LEFT(lat, LENGTH(lat) - 1) AS FLOAT)\r\n                    END\r\n                )) * \r\n                cos(radians(\r\n                    CASE \r\n                        WHEN lon LIKE '%E' THEN CAST(LEFT(lon, LENGTH(lon) - 1) AS FLOAT)\r\n                        WHEN lon LIKE '%W' THEN -CAST(LEFT(lon, LENGTH(lon) - 1) AS FLOAT)\r\n                    END\r\n                ) - radians(-81.3)) + \r\n                sin(radians(28.5)) * sin(radians(\r\n                    CASE \r\n                        WHEN lat LIKE '%N' THEN CAST(LEFT(lat, LENGTH(lat) - 1) AS FLOAT)\r\n                        WHEN lat LIKE '%S' THEN -CAST(LEFT(lat, LENGTH(lat) - 1) AS FLOAT)\r\n                    END\r\n                ))\r\n            )\r\n        ) \r\n    INTO closest_distance\r\n    FROM hurdat2\r\n    WHERE name = storm_name;\r\n\r\n    RETURN closest_distance;\r\nEND;",
+        "drop": false,
+        "ignoreErrors": false
+      }
+    },
+    "Target SQL": {
+      "class": "targetSql",
+      "config": {
+        "target": "hurricane_students",
+        "sql": "select\n    hd.name as storm_name,\n    hd.year as storm_year,\n    ceil(custom_insights.closest_landfall_distance_from_orlando(hd.name)) as storm_proximity,\n    ao.name as student_name\nfrom\n    custom_insights.hurdat2 hd,\n    academic_outcome ao\nwhere\n    ao.ACADEMIC_YEAR_GRADUATION = hd.year",
+        "append": false,
+        "ignoreErrors": false
+      }
+    }
+  }
+}
