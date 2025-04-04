@@ -1,0 +1,42 @@
+{
+  "name": "elive-2025-hurricane-report",
+  "pipeline": [
+    "Extract Data",
+    "Reducer",
+    "HTML Formatter",
+    "File Writer"
+  ],
+  "segments": {
+    "Extract Data": {
+      "class": "extractData",
+      "config": {
+        "selectQuery": "WITH limited_students AS (\r\n  SELECT student_name, storm_name, storm_year, storm_proximity,\r\n  ROW_NUMBER() OVER (PARTITION BY storm_name) AS rowNum\r\n  FROM custom_insights.hurricane_students\r\n  order by storm_name\r\n)\r\nSELECT\r\n  storm_name, storm_year, storm_proximity, student_name\r\nFROM\r\n  limited_students\r\nWHERE\r\n  rowNum <= 20\r\nAND \r\n  storm_proximity <= 200\r\ngroup by\r\n  student_name, storm_name, storm_year, storm_proximity\r\norder by\r\n  storm_year desc, storm_name",
+        "bulkLoadEnabled": true,
+        "ignoreErrors": false
+      }
+    },
+    "Reducer": {
+      "class": "reducer",
+      "config": {
+        "accumulator": "payload.records"
+      }
+    },
+    "HTML Formatter": {
+      "class": "htmlFormatter",
+      "config": {
+        "template": "<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    table {\n\t\t\tmargin-left: auto;\n\t\t\tmargin-right: auto;\n\t\t\tborder-collapse: collapse;\n\t\t}\n\n\t\tth {\n\t\t\tfont-family: courier;\n\t\t\tfont-weight: bold;\n\t\t\tfont-size: 18px;\n\t\t}\n\n\t\tth, td {\n\t\t\tfont-family: courier;\n\t\t\ttext-align: left;\n\t\t\tpadding: 10px;\n\t\t\tborder: 1px solid;\n\t\t\tborder-collapse: collapse;\n\t\t}\n\t\t.distance { text-align: right; }\n  </style>\n</head>\n<body>\n        <table>\n\t\t    <tr>\n\t\t\t    <th>Hurricane</th>\n\t\t\t    <th>Year</th>\n\t\t\t    <th>Distance (miles)</th>\n\t\t\t    <th>Student</th>\n\t\t    </tr>\n\n        {{#message.payload.records}}\n\t\t    <tr>\n\t\t\t    <td>{{storm_name}}</td>\n\t\t\t    <td>{{storm_year}}</td>\n\t\t\t    <td class=\"distance\">{{storm_proximity}}</td>\n\t\t\t    <td>{{student_name}}</td>\n\t\t    </tr>\n        {{/message.payload.records}}\n\n      </table>\n\n    </div>\n</body>\n</html>"
+      }
+    },
+    "File Writer": {
+      "class": "s3sink",
+      "config": {
+        "key": "storms.html",
+        "addNewlineAfterEachMessage": false,
+        "includeTotalCount": false,
+        "generatePresignedUrl": true,
+        "writeImmediately": false,
+        "utfEncoding": "utf-8"
+      }
+    }
+  }
+}
