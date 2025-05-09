@@ -1,0 +1,128 @@
+{
+  "name": "Swim Team Invitation Notification Pipeline",
+  "description": "The pipeline is designed to send competition invitation notifications to swim team players, informing them of their participation in an upcoming event.",
+  "parameters": [
+    {
+      "name": "coachEmail",
+      "type": "string",
+      "label": "Coach Email Address -  Sender",
+      "regex": {
+        "expression": "^(([^<>()[\\]\\.,;:\\s@\\\"]+(\\.[^<>()[\\]\\.,;:\\s@\\\"]+)*)|(\\\".+\\\"))@(([^<>()[\\]\\.,;:\\s@\\\"]+\\.)+[^<>()[\\]\\.,;:\\s@\\\"]{2,})$"
+      },
+      "required": true,
+      "description": "Email address of the coach that will be sending invitation notifications to swim team players. NOTE: This email has to be previously verified to be able to send emails."
+    }
+  ],
+  "pipeline": [
+    "Extract Swim Team Roster Competitions",
+    "Accumulate Roster Competitions",
+    "Group Competitions for Team Players",
+    "For Each Team Player",
+    "Prepare Team Member HTML",
+    "Create Individual Information HTML",
+    "Create Tem Member Report File",
+    "Prepare Team Member HTML File",
+    "Email Swim Competition Invitation File"
+  ],
+  "segments": {
+    "Extract Swim Team Roster Competitions": {
+      "class": "extractData",
+      "description": "Extracts swim team roster competitions data from the database.",
+      "config": {
+        "selectQuery": "select\r\n     roster.player_name\r\n    ,roster.birth_date\r\n    ,roster.phone_number\r\n    ,roster.email_address\r\n    ,roster.parent_name\r\n    ,roster.team_name\r\n    ,roster.organization\r\n    ,roster.yr\r\n    ,roster.coach_name\r\n    ,roster.coach_phone_number\r\n    ,competitions.competition\r\nfrom \r\n    custom_insights.team_roster as roster\r\njoin (\r\n    select distinct player_name\r\n    from custom_insights.team_roster\r\n    order by player_name\r\n    limit 2\r\n) as selected_players\r\n    on roster.player_name = selected_players.player_name\r\njoin \r\n    custom_insights.team_competitions as competitions \r\n    on roster.player_name = competitions.player_name;\r\n",
+        "bulkLoadEnabled": true,
+        "ignoreErrors": false
+      }
+    },
+    "Accumulate Roster Competitions": {
+      "class": "reducer",
+      "description": "Aggregates team member records into a roster collection.",
+      "config": {
+        "accumulator": "payload.roster"
+      }
+    },
+    "Group Competitions for Team Players": {
+      "class": "JavaScriptTransform",
+      "description": "Groups and aggregates competitions by player.",
+      "config": {
+        "pushUndefined": true,
+        "stopOnError": false,
+        "draft": false,
+        "code": "function transform (message, context) {\n  const roster = message.payload.roster;\n\n  const grouped = {};\n  \n  roster.forEach(player => {\n    const key = player.player_name;\n  \n    if (!grouped[key]) {\n      const { competition, ...rest } = player;\n      grouped[key] = {\n        ...rest,\n        competitions: [competition]\n      };\n    } else {\n      grouped[key].competitions.push(player.competition);\n    }\n  });\n  \n  const groupedRoster = Object.values(grouped);\n  \n  message.payload.roster = groupedRoster;\n  \n  return message;\n}\n"
+      }
+    },
+    "For Each Team Player": {
+      "class": "forEach",
+      "description": "Iterates over each team player in the roster.",
+      "config": {
+        "source": "payload.roster"
+      }
+    },
+    "Prepare Team Member HTML": {
+      "class": "JavaScriptTransform",
+      "description": "Prepares HTML headers with player and coach details for invitation.",
+      "config": {
+        "pushUndefined": true,
+        "stopOnError": false,
+        "draft": false,
+        "code": "function transform (message, context) {\n  \n  const { player_name, \n    birth_date,\n    phone_number,\n    email_address,\n    parent_name,\n    team_name,\n    yr,\n    organization,\n    coach_name,\n    coach_phone_number,\n    competitions\n  } = message.payload\n  \n  message.header.fileName = `${player_name} - Invitation.html`\n  \n  message.header.player = {\n    name: player_name,\n    birth_date,\n    phone_number,\n    email_address,\n    parent_name,\n    competitions\n  }\n  \n  message.header.coach = {\n    name: coach_name,\n    phone_number: coach_phone_number,\n    email_address: context.get('coachEmail')\n  };\n  \n  message.header.general = {\n    team_name,\n    year: yr,\n    organization\n  };\n  \n  return message;\n}\n"
+      }
+    },
+    "Create Individual Information HTML": {
+      "class": "htmlFormatter",
+      "description": "Generates a styled HTML invitation for the team member.",
+      "config": {
+        "template": "<!DOCTYPE html>\r\n<html lang=\"en\">\r\n<head>\r\n  <meta charset=\"UTF-8\" />\r\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"/>\r\n  <title>Competition Invitation for {{message.header.player.name}}</title>\r\n  <style>\r\n    body {\r\n      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;\r\n      background-color: #f4f6f8;\r\n      margin: 0;\r\n      padding: 40px 0;\r\n      color: #333;\r\n    }\r\n\r\n    .letter-container {\r\n      max-width: 800px;\r\n      margin: auto;\r\n      background: #ffffff;\r\n      padding: 40px;\r\n      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);\r\n      border-radius: 12px;\r\n    }\r\n\r\n    h1 {\r\n      color: #0b3861;\r\n      text-align: center;\r\n      font-size: 28px;\r\n      margin-bottom: 30px;\r\n    }\r\n\r\n    p {\r\n      font-size: 16px;\r\n      line-height: 1.7;\r\n      margin-bottom: 16px;\r\n    }\r\n\r\n    ul {\r\n      list-style: none;\r\n      padding-left: 0;\r\n      margin-top: 10px;\r\n      margin-bottom: 20px;\r\n    }\r\n\r\n    ul li {\r\n      background: #f1f5f9;\r\n      padding: 10px 15px;\r\n      margin-bottom: 8px;\r\n      border-left: 5px solid #0b3861;\r\n      border-radius: 6px;\r\n    }\r\n\r\n    .signature {\r\n      margin-top: 40px;\r\n      font-size: 16px;\r\n    }\r\n\r\n    .footer {\r\n      margin-top: 50px;\r\n      text-align: center;\r\n      font-size: 14px;\r\n      color: #999;\r\n    }\r\n\r\n    @media print {\r\n      body {\r\n        background: none;\r\n        padding: 0;\r\n      }\r\n\r\n      .letter-container {\r\n        box-shadow: none;\r\n        border-radius: 0;\r\n      }\r\n\r\n      .footer {\r\n        display: none;\r\n      }\r\n    }\r\n  </style>\r\n</head>\r\n<body>\r\n  <div class=\"letter-container\">\r\n    <h1>Swim Competition Notification</h1>\r\n\r\n    <p>Dear {{message.header.player.parent_name}},</p>\r\n\r\n    <p>\r\n      We are thrilled to inform you that <strong>{{message.header.player.name}}</strong> has been selected to compete in the upcoming swim competitions representing the <strong>{{message.header.general.team_name}}</strong>.\r\n    </p>\r\n\r\n    <p>\r\n      The events are proudly organized by <strong>{{message.header.general.organization}}</strong> and will take place during the <strong>{{message.header.general.year}}</strong> season.\r\n    </p>\r\n\r\n    <p><strong>Participant Details:</strong></p>\r\n    <ul>\r\n      <li><strong>Name:</strong> {{message.header.player.name}}</li>\r\n      <li><strong>Birth Date:</strong> {{message.header.player.birth_date}}</li>\r\n      <li><strong>Contact Number:</strong> {{message.header.player.phone_number}}</li>\r\n      <li><strong>Email Address:</strong> {{message.header.player.email_address}}</li>\r\n    </ul>\r\n\r\n    <p><strong>Coach Contact Information:</strong></p>\r\n    <ul>\r\n      <li><strong>Coach Name:</strong> {{message.header.coach.name}}</li>\r\n      <li><strong>Phone Number:</strong> {{message.header.coach.phone_number}}</li>\r\n      <li><strong>Email Address:</strong> {{message.header.coach.email_address}}</li>\r\n    </ul>\r\n\r\n    <p><strong>Competitions Attending:</strong></p>\r\n    <ul>\r\n      {{#message.header.player.competitions}}\r\n        <li>{{.}}</li>\r\n      {{/message.header.player.competitions}}\r\n    </ul>\r\n\r\n    <p>\r\n      We are proud of {{message.header.player.name}}'s dedication and commitment, and we look forward to a great performance in the upcoming events.\r\n    </p>\r\n\r\n    <p class=\"signature\">\r\n      Sincerely,<br />\r\n      <strong>Swim Team Administration</strong>\r\n    </p>\r\n  </div>\r\n\r\n  <div class=\"footer\">\r\n    &copy; {{message.header.general.year}} {{message.header.general.organization}}. All rights reserved.\r\n  </div>\r\n</body>\r\n</html>\r\n"
+      }
+    },
+    "Create Tem Member Report File": {
+      "class": "s3sink",
+      "description": "Stores the generated HTML invitation file in S3 with a presigned URL.",
+      "config": {
+        "key": "{{message.header.fileName}}",
+        "addNewlineAfterEachMessage": false,
+        "includeTotalCount": false,
+        "generatePresignedUrl": true,
+        "writeImmediately": true,
+        "utfEncoding": "utf-8"
+      }
+    },
+    "Prepare Team Member HTML File": {
+      "class": "JavaScriptTransform",
+      "description": "Wraps the HTML invitation content for email attachment compatibility.",
+      "config": {
+        "pushUndefined": true,
+        "stopOnError": false,
+        "draft": false,
+        "code": "function transform (message, context) {\n  \n  message.payload ={\n   fileContent: message.payload \n  }\n  \n  return message;\n}\n"
+      }
+    },
+    "Email Swim Competition Invitation File": {
+      "class": "Notification",
+      "description": "Sends the personalized invitation email to the team player.",
+      "config": {
+        "emailDetails": {
+          "subject": "Swim Competition Notification - {{message.header.player.name}}",
+          "htmlBody": "<!DOCTYPE html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <style>\n      body {\n        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;\n        background-color: #f4f6f8;\n        color: #333;\n        margin: 0;\n        padding: 40px 0;\n      }\n\n      .email-container {\n        max-width: 650px;\n        margin: auto;\n        background-color: #ffffff;\n        border-radius: 10px;\n        overflow: hidden;\n        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);\n      }\n\n      .email-header {\n        background-color: #0b3861;\n        color: #ffffff;\n        text-align: center;\n        padding: 25px 20px;\n      }\n\n      .email-header h1 {\n        margin: 0;\n        font-size: 24px;\n      }\n\n      .email-body {\n        padding: 30px;\n      }\n\n      .email-body h2 {\n        font-size: 20px;\n        color: #0b3861;\n        margin-bottom: 20px;\n      }\n\n      .email-body p {\n        font-size: 16px;\n        line-height: 1.7;\n        margin-bottom: 18px;\n      }\n\n      .email-body strong {\n        color: #0b3861;\n      }\n\n      .button {\n        display: inline-block;\n        padding: 12px 24px;\n        margin-top: 20px;\n        background-color: #0b3861;\n        color: #ffffff;\n        text-decoration: none;\n        border-radius: 6px;\n        font-weight: bold;\n      }\n\n      .signature {\n        margin-top: 30px;\n        font-size: 16px;\n      }\n\n      .email-footer {\n        text-align: center;\n        font-size: 13px;\n        color: #999;\n        padding: 20px;\n        border-top: 1px solid #e0e0e0;\n        background-color: #fafafa;\n      }\n    </style>\n  </head>\n  <body>\n    <div class=\"email-container\">\n      <div class=\"email-header\">\n        <h1>{{message.header.general.organization}}</h1>\n      </div>\n\n      <div class=\"email-body\">\n        <h2>Dear {{message.header.player.name}},</h2>\n\n        <p>\n          Please find attached your official team member information for the upcoming swim competition.\n        </p>\n\n        <p>\n          The document includes key details such as your team name (<strong>{{message.header.general.team_name}}</strong>), season, and your coach’s contact information. We kindly ask that you review this information and notify us of any necessary updates.\n        </p>\n\n        <p>\n          We are proud to have you representing our team, and we are confident you will perform with excellence in the competition.\n        </p>\n\n        <p>\n          Should you have any questions, please feel free to reach out.\n        </p>\n\n        <!-- Optional download button/link -->\n        <!-- <a href=\"#\" class=\"button\">Download Information</a> -->\n\n        <div class=\"signature\">\n          Sincerely,<br />\n          <strong>Swim Team Administration</strong><br />\n          {{message.header.general.organization}}\n        </div>\n      </div>\n\n      <div class=\"email-footer\">\n        &copy; {{message.header.general.year}} {{message.header.general.organization}}. All rights reserved.\n      </div>\n    </div>\n  </body>\n</html>",
+          "attachments": [
+            {
+              "id": "nbOO7fEFSyWvxf6rCOj4F",
+              "name": "{{message.header.fileName}}",
+              "base64Contents": "$.fileContent"
+            }
+          ],
+          "ccAddresses": [],
+          "fromAddress": "Use dynamically generated address",
+          "toAddresses": [
+            "{{context.coachEmail}}"
+          ],
+          "bccAddresses": [],
+          "hasAttachment": true,
+          "dynamicFromAddress": "{{{message.header.coach.email_address}}}",
+          "userAcknowledgement": true
+        },
+        "ignoreErrors": false
+      }
+    }
+  }
+}

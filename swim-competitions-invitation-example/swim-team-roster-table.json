@@ -1,0 +1,87 @@
+{
+  "name": "Create and Populate Team Roster Table",
+  "pipeline": [
+    "Create Table",
+    "Populate Table",
+    "Test Query"
+  ],
+  "segments": {
+    "Create Table": {
+      "class": "createTable",
+      "config": {
+        "tableName": "team_roster",
+        "tableColumns": [
+          {
+            "name": "player_name",
+            "type": "text",
+            "nullable": true
+          },
+          {
+            "name": "birth_date",
+            "type": "timestamp without time zone",
+            "nullable": true
+          },
+          {
+            "name": "phone_number",
+            "type": "text",
+            "nullable": true
+          },
+          {
+            "name": "email_address",
+            "type": "text",
+            "nullable": true
+          },
+          {
+            "name": "parent_name",
+            "type": "text",
+            "nullable": true
+          },
+          {
+            "name": "team_name",
+            "type": "text",
+            "nullable": true
+          },
+          {
+            "name": "organization",
+            "type": "text",
+            "nullable": true
+          },
+          {
+            "name": "yr",
+            "type": "text",
+            "nullable": true
+          },
+          {
+            "name": "coach_name",
+            "type": "text",
+            "nullable": true
+          },
+          {
+            "name": "coach_phone_number",
+            "type": "text",
+            "nullable": true
+          }
+        ],
+        "drop": false,
+        "ignoreErrors": false
+      }
+    },
+    "Populate Table": {
+      "class": "targetSql",
+      "config": {
+        "target": "team_roster",
+        "sql": "select \t'John Doe'\tplayer_name,\t'2010-05-14'::timestamp(6) without time zone \tbirth_date,\t'555-1234'\tphone_number,\t'john.doe@email.com'\temail_address,\t'Michael Doe'\tparent_name,\t'Thunderbolts'\tteam_name,\t'Midwest State University'\torganization,\t'2025'\tyr,\t'Mark Reynolds'\tcoach_name,\t'555-9999'\tcoach_phone_number \t union all\r\nselect \t'Emma Smith'\tplayer_name,\t'2011-08-22'::timestamp(6) without time zone \tbirth_date,\t'555-5678'\tphone_number,\t'emma.smith@email.com'\temail_address,\t'Sarah Smith'\tparent_name,\t'Thunderbolts'\tteam_name,\t'Midwest State University'\torganization,\t'2025'\tyr,\t'Mark Reynolds'\tcoach_name,\t'555-9999'\tcoach_phone_number \t union all\r\nselect \t'Liam Johnson'\tplayer_name,\t'2009-12-03'::timestamp(6) without time zone \tbirth_date,\t'555-8765'\tphone_number,\t'liam.johnson@email.com'\temail_address,\t'David Johnson'\tparent_name,\t'Thunderbolts'\tteam_name,\t'Midwest State University'\torganization,\t'2025'\tyr,\t'Mark Reynolds'\tcoach_name,\t'555-9999'\tcoach_phone_number \t union all\r\nselect \t'Olivia Brown'\tplayer_name,\t'2012-06-17'::timestamp(6) without time zone \tbirth_date,\t'555-4321'\tphone_number,\t'olivia.brown@email.com'\temail_address,\t'Linda Brown'\tparent_name,\t'Thunderbolts'\tteam_name,\t'Midwest State University'\torganization,\t'2025'\tyr,\t'Mark Reynolds'\tcoach_name,\t'555-9999'\tcoach_phone_number \t union all\r\nselect \t'Ava Wilson'\tplayer_name,\t'2011-03-05'::timestamp(6) without time zone \tbirth_date,\t'555-6789'\tphone_number,\t'ava.wilson@email.com'\temail_address,\t'Patricia Wilson'\tparent_name,\t'Thunderbolts'\tteam_name,\t'Midwest State University'\torganization,\t'2025'\tyr,\t'Mark Reynolds'\tcoach_name,\t'555-9999'\tcoach_phone_number \t union all\r\nselect \t'Noah Davis'\tplayer_name,\t'2010-11-29'::timestamp(6) without time zone \tbirth_date,\t'555-3456'\tphone_number,\t'noah.davis@email.com'\temail_address,\t'James Davis'\tparent_name,\t'Thunderbolts'\tteam_name,\t'Midwest State University'\torganization,\t'2025'\tyr,\t'Mark Reynolds'\tcoach_name,\t'555-9999'\tcoach_phone_number \t union all\r\nselect \t'Ethan Martinez'\tplayer_name,\t'2009-09-10'::timestamp(6) without time zone \tbirth_date,\t'555-9012'\tphone_number,\t'ethan.martinez@email.com'\temail_address,\t'Robert Martinez'\tparent_name,\t'Thunderbolts'\tteam_name,\t'Midwest State University'\torganization,\t'2025'\tyr,\t'Mark Reynolds'\tcoach_name,\t'555-9999'\tcoach_phone_number \t union all\r\nselect \t'Sophia Taylor'\tplayer_name,\t'2012-07-25'::timestamp(6) without time zone \tbirth_date,\t'555-2345'\tphone_number,\t'sophia.taylor@email.com'\temail_address,\t'Jennifer Taylor'\tparent_name,\t'Thunderbolts'\tteam_name,\t'Midwest State University'\torganization,\t'2025'\tyr,\t'Mark Reynolds'\tcoach_name,\t'555-9999'\tcoach_phone_number \t union all\r\nselect \t'Mason Anderson'\tplayer_name,\t'2010-01-15'::timestamp(6) without time zone \tbirth_date,\t'555-7890'\tphone_number,\t'mason.anderson@email.com'\temail_address,\t'William Anderson'\tparent_name,\t'Thunderbolts'\tteam_name,\t'Midwest State University'\torganization,\t'2025'\tyr,\t'Mark Reynolds'\tcoach_name,\t'555-9999'\tcoach_phone_number \t union all\r\nselect \t'Isabella Thomas'\tplayer_name,\t'2011-04-30'::timestamp(6) without time zone \tbirth_date,\t'555-5432'\tphone_number,\t'isabella.thomas@email.com'\temail_address,\t'Elizabeth Thomas'\tparent_name,\t'Thunderbolts'\tteam_name,\t'Midwest State University'\torganization,\t'2025'\tyr,\t'Mark Reynolds'\tcoach_name,\t'555-9999'\tcoach_phone_number \t ",
+        "append": false,
+        "ignoreErrors": false
+      }
+    },
+    "Test Query": {
+      "class": "extractData",
+      "config": {
+        "selectQuery": "select\r\n     player_name\r\n    ,birth_date\r\n    ,phone_number\r\n    ,email_address\r\n    ,parent_name\r\n    ,team_name\r\n    ,organization\r\n    ,yr\r\n    ,coach_name\r\n    ,coach_phone_number\r\nfrom \r\n    custom_insights.team_roster ",
+        "bulkLoadEnabled": true,
+        "ignoreErrors": false
+      }
+    }
+  }
+}

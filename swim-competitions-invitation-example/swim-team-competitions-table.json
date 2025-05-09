@@ -1,0 +1,50 @@
+{
+  "name": "Create and Populate Team Competitions Table",
+  "pipeline": [
+    "Create Table",
+    "Populate Table",
+    "Test Query"
+  ],
+  "segments": {
+    "Create Table": {
+      "description": "Creates a team competitions table with specified columns.",
+      "class": "createTable",
+      "config": {
+        "tableName": "team_competitions",
+        "tableColumns": [
+          {
+            "name": "player_name",
+            "type": "text",
+            "nullable": true
+          },
+          {
+            "name": "competition",
+            "type": "text",
+            "nullable": true
+          }
+        ],
+        "drop": false,
+        "ignoreErrors": false
+      }
+    },
+    "Populate Table": {
+      "description": "Populates the team competitions table with sample data records.",
+      "class": "targetSql",
+      "config": {
+        "target": "team_competitions",
+        "sql": "select 'John Doe' player_name, 'Regional Qualifiers' competition union all\r\nselect 'John Doe', 'State Championship' union all\r\nselect 'John Doe', 'National Invitational' union all\r\nselect 'Emma Smith', 'Regional Qualifiers' union all\r\nselect 'Emma Smith', 'National Invitational' union all\r\nselect 'Emma Smith', 'Winter Classic' union all\r\nselect 'Liam Johnson', 'State Championship' union all\r\nselect 'Liam Johnson', 'Winter Classic' union all\r\nselect 'Liam Johnson', 'Summer Games' union all\r\nselect 'Olivia Brown', 'Regional Qualifiers' union all\r\nselect 'Olivia Brown', 'Summer Games' union all\r\nselect 'Ava Wilson', 'State Championship' union all\r\nselect 'Ava Wilson', 'Spring Tournament' union all\r\nselect 'Noah Davis', 'Winter Classic' union all\r\nselect 'Noah Davis', 'National Invitational' union all\r\nselect 'Noah Davis', 'Spring Tournament' union all\r\nselect 'Noah Davis', 'Regional Qualifiers' union all\r\nselect 'Ethan Martinez', 'Summer Games' union all\r\nselect 'Ethan Martinez', 'Regional Qualifiers' union all\r\nselect 'Sophia Taylor', 'Spring Tournament' union all\r\nselect 'Sophia Taylor', 'State Championship' union all\r\nselect 'Sophia Taylor', 'National Invitational' union all\r\nselect 'Mason Anderson', 'National Invitational' union all\r\nselect 'Mason Anderson', 'Winter Classic' union all\r\nselect 'Isabella Thomas', 'Summer Games' union all\r\nselect 'Isabella Thomas', 'Spring Tournament' union all\r\nselect 'Isabella Thomas', 'Regional Qualifiers';\r\n",
+        "append": false,
+        "ignoreErrors": false
+      }
+    },
+    "Test Query": {
+      "description": "Executes a query to verify data insertion in the team competitions table.",
+      "class": "extractData",
+      "config": {
+        "selectQuery": "select\r\n    player_name,\r\n    competition\r\nfrom \r\n    custom_insights.team_competitions ",
+        "bulkLoadEnabled": true,
+        "ignoreErrors": false
+      }
+    }
+  }
+}
