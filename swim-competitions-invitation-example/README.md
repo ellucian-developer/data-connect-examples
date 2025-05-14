@@ -9,7 +9,7 @@ In this demonstration, we use a swim team scenario as the main example, where ea
 * `swim-team-roster-table` – Creates the `team_roster` table to store player details (name, contact info, etc.) and populates it with sample data.
 * `swim-team-competitions-table` – Creates the `player_competitions` table to store which competitions each player is assigned to and populate with sample data. (1 to many relationships are set here since each player can be related to any number of competitions).
 * `swim-team-send-player-invitations` – Pipeline that generates personalized HTML invitations based on actual team and competition data, stores the file, and emails it to each player.
-* `swim-team-send-player-invitations-mock` – Ppipeline that simulates the entire process using generated test data for development or testing purposes.
+* `swim-team-send-player-invitations-mock` – Pipeline that simulates the entire process using generated test data for development or testing purposes.
 
 ---
 
