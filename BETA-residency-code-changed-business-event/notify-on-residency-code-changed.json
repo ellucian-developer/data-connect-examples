@@ -1,0 +1,106 @@
+{
+  "name": "Resd Code Changer Notification",
+  "parameters": [
+    {
+      "name": "ethosApiKey",
+      "type": "string",
+      "sensitive": true
+    },
+    {
+      "name": "senderEmail",
+      "label": "Sender Email",
+      "description": "Email to be uset to notify the student of the change.\nNOTE: This email has to be previously verified to be able to send emails.",
+      "type": "string",
+      "required": true,
+      "regex": {
+        "expression": "^(([^<>()[\\]\\.,;:\\s@\\\"]+(\\.[^<>()[\\]\\.,;:\\s@\\\"]+)*)|(\\\".+\\\"))@(([^<>()[\\]\\.,;:\\s@\\\"]+\\.)+[^<>()[\\]\\.,;:\\s@\\\"]{2,})$"
+      }
+    }
+  ],
+  "pipeline": [
+    "Ethos Consume Event",
+    "Ethos Proxy Get Residency Types",
+    "Filter Residency Type",
+    "Prepare Information",
+    "Notify Student",
+    "#Ethos Consume Confirm"
+  ],
+  "segments": {
+    "Ethos Consume Event": {
+      "class": "ethosConsumeChangeNotifications",
+      "description": "Consumes the business event from Ethos Integration when a residency code is changed.",
+      "config": {
+        "businessEvents": true,
+        "target": "businessEvent",
+        "ignoreErrors": false,
+        "apiKey": "ethosApiKey"
+      }
+    },
+    "Ethos Proxy Get Residency Types": {
+      "class": "ethosProxyGet",
+      "description": "Retrieves all residency types from Banner via Ethos for use in filtering and notification.",
+      "config": {
+        "resource": "residency-types",
+        "acceptVersions": [
+          "7"
+        ],
+        "target": "residencyTypes",
+        "cache": false,
+        "ignoreErrors": false
+      }
+    },
+    "Filter Residency Type": {
+      "class": "JavaScriptTransform",
+      "description": "Filters and matches the incoming residency code from the event to the correct residency type details.",
+      "config": {
+        "pushUndefined": true,
+        "stopOnError": false,
+        "draft": false,
+        "code": "function transform (message, context) {\n  const {\n    residencyTypes,\n    businessEvent\n  } = message.payload;\n  \n  const incomingResdCode = businessEvent.content.changeData.sgbstdnResdCode || null;\n\n  message.payload.execCond = incomingResdCode !== null;\n  \n  if(incomingResdCode !== null) {\n    message.payload.newResidencyType = residencyTypes.filter(res => res.code === incomingResdCode)[0]\n  }\n  \n  delete message.payload.residencyTypes;\n  \n  return message;\n}\n"
+      }
+    },
+    "Prepare Information": {
+      "class": "JavaScriptTransform",
+      "description": "Prepares student information (name, email) from the business event data for notification.",
+      "if": "message.payload.execCond",
+      "config": {
+        "pushUndefined": true,
+        "stopOnError": false,
+        "draft": false,
+        "code": "function transform (message, context) {\n  message.header.senderEmail = context.get('senderEmail');\n  \n  const {\n    spridenFirstName: firstName,\n    spridenLastName: lastName,\n    goremalEmailAddress: email\n  } = message.payload.businessEvent.content.additionalData;\n\n  message.payload.studentInfo = {\n    name: `${firstName} ${lastName}`,\n    email\n  }\n  \n  return message;\n}"
+      }
+    },
+    "Notify Student": {
+      "class": "Notification",
+      "description": "Sends a notification email to the student about the residency code update.",
+      "if": "message.payload.execCond",
+      "config": {
+        "emailDetails": {
+          "fromAddress": "Use dynamically generated address",
+          "dynamicFromAddress": "{{{context.senderEmail}}}",
+          "toAddresses": [
+            "{{{message.payload.studentInfo.email}}}"
+          ],
+          "ccAddresses": [],
+          "bccAddresses": [],
+          "subject": "Notification of new residency assignment",
+          "htmlBody": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\" />\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"/>\n  <title>Residency Type Updated</title>\n  <style>\n    body {\n      margin: 0;\n      background-color: #f8f9fa;\n      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;\n      color: #333;\n      padding: 0;\n    }\n\n    .email-wrapper {\n      width: 100%;\n      padding: 40px 20px;\n    }\n\n    .email-container {\n      max-width: 680px;\n      margin: 0 auto;\n      background-color: #fff;\n      border-radius: 12px;\n      overflow: hidden;\n      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);\n      border: 1px solid #e1e5eb;\n    }\n\n    .email-header {\n      background-color: #7100EB;\n      padding: 30px 40px;\n      color: #fff;\n      text-align: center;\n    }\n\n    .email-header h1 {\n      margin: 0;\n      font-size: 26px;\n      font-weight: 600;\n    }\n\n    .email-body {\n      padding: 40px;\n    }\n\n    h2 {\n      font-size: 20px;\n      margin-top: 0;\n      color: #7100EB;\n    }\n\n    p {\n      font-size: 16px;\n      line-height: 1.6;\n      margin-bottom: 20px;\n    }\n\n    .highlight {\n      background-color: #f4f0fd;\n      border-left: 5px solid #7100EB;\n      padding: 15px 20px;\n      font-weight: 500;\n      border-radius: 6px;\n      margin-bottom: 25px;\n      color: #7100EB;\n    }\n\n    .impact-note {\n      background-color: #fffbe6;\n      border-left: 5px solid #f0ad4e;\n      padding: 14px 18px;\n      border-radius: 6px;\n      font-weight: 500;\n      margin-bottom: 25px;\n      color: #856404;\n    }\n\n    .details {\n      background-color: #f0fdf5;\n      border-left: 4px solid #95F4A0;\n      padding: 14px 18px;\n      font-size: 15px;\n      border-radius: 6px;\n      line-height: 1.5;\n      color: #1a1a1a;\n    }\n\n    .signature {\n      margin-top: 40px;\n      font-size: 16px;\n    }\n\n    .signature strong {\n      color: #7100EB;\n    }\n\n    .email-footer {\n      text-align: center;\n      font-size: 13px;\n      color: #888;\n      padding: 30px 20px 20px;\n    }\n\n    @media (max-width: 600px) {\n      .email-body {\n        padding: 30px 20px;\n      }\n    }\n  </style>\n</head>\n<body>\n  <div class=\"email-wrapper\">\n    <div class=\"email-container\">\n      <div class=\"email-header\">\n        <h1>Ellucian University</h1>\n      </div>\n      <div class=\"email-body\">\n        <h2>Residency Type Update Notification</h2>\n\n        <p>Dear {{message.payload.studentInfo.name}},</p>\n\n        <p>\n          We are writing to inform you that your residency classification has been updated in our records for the upcoming academic term.\n        </p>\n\n        <div class=\"highlight\">\n          New Residency Type: {{message.payload.newResidencyType.title}}\n        </div>\n\n        <div class=\"impact-note\">\n          Change to Residency type may impact your registration fee assessment for the term. Please see an advisor for details.\n        </div>\n\n        <p>\n          If you have any questions regarding this change, we encourage you to contact your academic advisor or the Office of Records and Registration.\n        </p>\n\n        <p class=\"signature\">\n          Sincerely,<br/>\n          <strong>Office of Records and Registration</strong><br/>\n          Ellucian University\n        </p>\n      </div>\n\n      <div class=\"email-footer\">\n        This is an automated message from the University Residency Management System. For assistance, please contact your academic office.\n      </div>\n    </div>\n  </div>\n</body>\n</html>",
+          "hasAttachment": false,
+          "attachments": [],
+          "userAcknowledgement": true
+        },
+        "target": "emailConfirmation",
+        "ignoreErrors": false
+      }
+    },
+    "Ethos Consume Confirm": {
+      "class": "ethosConsumeConfirm",
+      "description": "Confirms the processing of the business event back to Ethos Integration.",
+      "config": {
+        "lastProcessedId": "{{message.payload.businessEvent.id}}",
+        "ignoreErrors": false,
+        "apiKey": "ethosApiKey"
+      }
+    }
+  }
+}
