@@ -23,7 +23,7 @@
     "Filter Residency Type",
     "Prepare Information",
     "Notify Student",
-    "#Ethos Consume Confirm"
+    "Ethos Consume Confirm"
   ],
   "segments": {
     "Ethos Consume Event": {
