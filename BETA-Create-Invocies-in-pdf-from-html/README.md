@@ -1,12 +1,6 @@
-# Trigger by Event Pipelines: Consuming and processing Business Events on Data Connect (BETA)
+# Data Connect Pipelines Demonstrating Create PDF Fitting
 
-This repository provides a sample pipeline demonstrating how to use Data Connect to automate processes triggered by business events in Banner. The example focuses on updating a student's residency code and notifying the student when this change occurs.
-
-**Data Connect plays a central role in enabling seamless, event-driven automation across Banner and related systems.** By leveraging Data Connect, you can quickly build, deploy, and manage integrations that respond to real-time business events—without the need for custom code or manual intervention.
-
-In this scenario, a business event is triggered after a student's residency code for a specific term is updated in Banner. The pipeline listens for this event, gathers relevant student information, and sends a notification email.
-
-> **Note:** You must have the business event configured in Banner Event Publisher (BEP) and a subscriber application set up in Ethos Integration, subscribed to the corresponding event.
+This repository provides sample pipelines that showcase how to generate PDFs using Create PDF fitting and deliver them using various destination fittings, including File Writer, SFTP PUT, Send Notification, and Create ZIP.
 
 ---
 ## Pipelines Included
