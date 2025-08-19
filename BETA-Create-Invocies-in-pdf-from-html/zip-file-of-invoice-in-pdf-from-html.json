@@ -1,0 +1,282 @@
+{
+  "name": "SendInvoice",
+  "description": "This pipeline is used to read multiple files at the same time from s3 and convert them to PDF(Invoice) and create a zip file of all the invoice",
+  "parameters": [
+    {
+      "name": "addThisContent",
+      "type": "string",
+      "default": "Hello this is a test file"
+    },
+    {
+      "name": "detailsJson",
+      "type": "string",
+      "default": "invoiceDetails_sc.json"
+    },
+    {
+      "name": "cssFile",
+      "type": "string",
+      "default": "style_sc.css"
+    },
+    {
+      "name": "imagesPath",
+      "type": "string",
+      "default": "ImageTest_"
+    },
+    {
+      "name": "fileName",
+      "type": "string",
+      "default": "invoice.pdf"
+    },
+    {
+      "name": "outZip",
+      "type": "string",
+      "default": "output.zip"
+    },
+    {
+      "name": "bucket",
+      "type": "string",
+      "required": true,
+      "sensitive": true
+    },
+    {
+      "name": "accessKey",
+      "type": "string",
+      "required": true,
+      "sensitive": true
+    },
+    {
+      "name": "secretAccessKey",
+      "type": "string",
+      "required": true,
+      "sensitive": true
+    }
+  ],
+  "pipeline": [
+    "File List for images Folder",
+    "Finding the actual images",
+    "For Each Image in images folder",
+    "put image info in header",
+    "Get image file content as binary",
+    "Add fileName to Payload",
+    "Reducer4",
+    "Convert the binary images into base64 and store in Context",
+    "File Reader for Details",
+    "Reducer",
+    "Store the details in context",
+    "JavaScript Rendered Templates",
+    "File Reader for CSS file",
+    "Reducer1",
+    "Store css in context",
+    "HTML",
+    "Create PDF",
+    "File Writer",
+    "JavaScript Transform for passing array to zip",
+    "Create Zip File",
+    "File Reader for Zip file",
+    "File Writer for writing Zip file for the view"
+  ],
+  "segments": {
+    "File List for images Folder": {
+      "class": "S3List",
+      "config": {
+        "filePrefix": "{{{context.imagesPath}}}",
+        "bucket": "bucket",
+        "accessKeyId": "accessKey",
+        "secretAccessKey": "secretAccessKey"
+      }
+    },
+    "Finding the actual images": {
+      "class": "JavaScriptTransform",
+      "config": {
+        "pushUndefined": true,
+        "stopOnError": false,
+        "draft": false,
+        "code": "function transform (message, context) {\n  const actualImages = message.payload.filter(\n    image => image.Size > 0\n  );\n  \n  message.payload = actualImages;\n  return message;\n}\n"
+      }
+    },
+    "For Each Image in images folder": {
+      "class": "forEach"
+    },
+    "put image info in header": {
+      "class": "JavaScriptTransform",
+      "config": {
+        "pushUndefined": true,
+        "stopOnError": false,
+        "draft": false,
+        "code": "function transform (message, context) {\n  message.header = message.payload;\n  return message;\n}\n"
+      }
+    },
+    "Get image file content as binary": {
+      "class": "S3Accessor",
+      "config": {
+        "key": "{{{message.payload.FileName}}}",
+        "bucket": "bucket",
+        "accessKeyId": "accessKey",
+        "secretAccessKey": "secretAccessKey",
+        "binary": true,
+        "errorIfNoFile": false,
+        "allowConcurrent": false
+      }
+    },
+    "Add fileName to Payload": {
+      "class": "JavaScriptTransform",
+      "config": {
+        "pushUndefined": true,
+        "stopOnError": false,
+        "draft": false,
+        "code": "function transform (message, context) {\n  const ar = Object.values(message.payload);\n  const path= context.get(\"imagesPath\");\n  const fileName = message.header.FileName\n    .toString().replace(path, '');\n  \n  message.payload = {\n    bufferArray: ar,\n    fileName\n  }\n  \n  message.header = undefined;\n  return message;\n}\n"
+      }
+    },
+    "Reducer4": {
+      "class": "reducer",
+      "config": {
+        "accumulator": "payload"
+      }
+    },
+    "Convert the binary images into base64 and store in Context": {
+      "class": "JavaScriptTransform",
+      "config": {
+        "pushUndefined": true,
+        "stopOnError": false,
+        "code": "function transform (message, context) {\n  const images = {}\n  const ar = message.payload.map(ele => {\n    const { bufferArray, fileName } = ele;\n    if(images[fileName])\n      images[fileName] = images[fileName].concat(bufferArray);\n    else\n      images[fileName] = bufferArray;\n  });\n  // message.payload = Buffer.from(ar).toString('base64');\n  // context.set('monashLogoBase64', Buffer.from(ar).toString('base64'));\n  message.payload = Object.entries(images).map(\n    ele => {\n      const [ fullName, bufferArray ] = ele;\n      const fileName = fullName.split(\"/\").pop().split(\".\")[0];\n      const value = Buffer.from(bufferArray).toString('base64');\n      \n      context.set( fileName, value );\n      \n      return { fileName , value: context.get(fileName) }\n    }\n  );\n  \n  return message;\n}"
+      }
+    },
+    "File Reader for Details": {
+      "class": "S3Accessor",
+      "config": {
+        "key": "{{{context.detailsJson}}}",
+        "bucket": "bucket",
+        "accessKeyId": "accessKey",
+        "secretAccessKey": "secretAccessKey",
+        "binary": false,
+        "errorIfNoFile": false,
+        "allowConcurrent": false
+      }
+    },
+    "Reducer": {
+      "class": "reducer",
+      "config": {
+        "accumulator": "payload"
+      }
+    },
+    "Store the details in context": {
+      "class": "JavaScriptTransform",
+      "config": {
+        "pushUndefined": true,
+        "stopOnError": false,
+        "draft": false,
+        "code": "const createElementRowGroup = (groupData) => {\n  let rowGroup = `<div class=\"table-row-group\">`;\n  let end = `</div>`;\n  \n  groupData.forEach(rowData => {\n    let rowDiv = `<div>`;\n    let endRowDiv = `</div>`;\n    \n    rowData.forEach(cellData => {\n        const cellDiv = `<div>${cellData}</div>`\n        rowDiv += cellDiv;\n    });\n\n    rowGroup += (rowDiv + endRowDiv);\n    })\n    \n    return (rowGroup + end);\n}\n\nfunction transform (message, context) {\n  const {\n    topLeftStateColDetails,\n    topRightInvoiceDetails,\n    main,\n    table,\n    total\n  } = JSON.parse(message.payload.join(''));\n  \n  context.set('topLeftStateColDetails', topLeftStateColDetails.replaceAll(\"\\n\", \"<br />\"));\n  context.set('sponserCode', topRightInvoiceDetails.sponserCode);\n  context.set('invoiceDate', topRightInvoiceDetails.invoiceDate);\n  context.set('invoicePeriod', topRightInvoiceDetails.invoicePeriod);\n  context.set('invoiceNo', topRightInvoiceDetails.invoiceNo);\n  context.set('dueDate', topRightInvoiceDetails.dueDate);\n  context.set('address', main.address.replaceAll(\"\\n\", \"<br />\"));\n  context.set('totalInvoice', topRightInvoiceDetails.totalInvoice);\n  context.set('paymentRequired', topRightInvoiceDetails.paymentRequired);\n  \n  let totalInvoice = 0;\n  \n  const tableData = Object.keys(table).map(\n    key => {\n      data = table[key][0];\n      return [\n        [ key, \"\", \"\", \"\", \"\", \"\" ],\n        [ data.student, data.unit, data.period, data.charges, data.paymentRec || \"\", data.paymentReq ],\n        [ \"Sub Total\", \"\", \"\", data.charges, data.paymentRec || \"\", data.paymentReq ]\n      ]\n    }\n  )\n  \n  let tableElement = \"\";\n  \n  tableData.forEach( data => tableElement += createElementRowGroup(data));\n  \n  context.set('tableData', tableElement);\n  context.set('tableFootCharges', total.tableFootCharges);\n  context.set('tableFootPaymentRec', total.tableFootPaymentRec);\n  context.set('tableFootPaymentReq', total.tableFootPaymentReq);\n  \n  // message.payload = {\n  //   tableElement, \n  //   tableData, \n  //   topLeftMonashDetails,\n  //   topRightInvoiceDetails,\n  //   main,\n  //   table,\n  //   total\n  // }\n  \n  return message;\n}\n"
+      }
+    },
+    "JavaScript Rendered Templates": {
+      "class": "JavaScriptTransform",
+      "config": {
+        "pushUndefined": true,
+        "stopOnError": false,
+        "draft": false,
+        "code": "const studyStatementTemplateTransform = (message, context) => {\n    class Element {\n        constructor(type) {\n            this.element = \"\";\n            this.type = type;\n        }\n    \n        appendElement(newText) { \n            this.element += newText + '\\n'; \n        }\n    \n        returnElement() { \n            return `<${this.type}>${this.element}</${this.type}>`; \n        }\n\n        toString() { \n            return this.returnElement();\n        }\n    }\n\n    const createSvgScale = () => {\n        const preDefinedPatterns = `\n<defs>\n    <pattern\n        id=\"green\"\n        width=\"14\"\n        height=\"1\"\n        patternUnits=\"userSpaceOnUse\"\n    >\n        <rect\n            width=\"14\"\n            height=\"1\"\n            fill=\"#5cb85c\"\n            fill-opacity=\"0.8\"\n        ></rect>\n        <rect\n            x=\"7\"\n            width=\"7\"\n            height=\"1\"\n            fill=\"white\"\n            fill-opacity=\"0.3\"\n        ></rect>\n    </pattern>\n    <pattern\n        id=\"blue\"\n        width=\"14\"\n        height=\"1\"\n        patternUnits=\"userSpaceOnUse\"\n        patternTransform=\"rotate(-35)\"\n    >\n        <rect\n            width=\"14\"\n            height=\"1\"\n            fill=\"#288dab\"\n            fill-opacity=\"0.7\"\n        ></rect>\n        <rect\n            x=\"5\"\n            width=\"7\"\n            height=\"1\"\n            fill=\"white\"\n            fill-opacity=\"0.4\"\n        ></rect>\n    </pattern>\n    <pattern\n        id=\"lightblue\"\n        width=\"14\"\n        height=\"1\"\n        patternUnits=\"userSpaceOnUse\"\n        patternTransform=\"rotate(35)\"\n    >\n        <rect width=\"14\" height=\"1\" fill=\"#5bc0de\"></rect>\n        <rect\n            x=\"3\"\n            width=\"7\"\n            height=\"1\"\n            fill=\"white\"\n            fill-opacity=\"0.4\"\n        ></rect>\n    </pattern>\n</defs>`\n        const rectElement = (x, y, width, height, fill, fillOpacity=1, rx=undefined) => `\n<rect \n    x=\"${x}\" \n    y=\"${y}\" \n    width=\"${width}\" \n    height=\"${height}\" \n    fill=\"${fill}\" \n    ${rx !== undefined ? `rx=\"${rx}\"` : \"\"} \n    fill-opacity=\"${fillOpacity}\"\n></rect>`\n        const textElement = (x, y, value, position='middle', fill=\"#333333\") => `\n        <text \n            x=\"${x}\" \n            y=\"${y}\" \n            ${position !== \"undefined\" ? `text-anchor=\"${position}\"` : \"\"}\n            ${fill !== \"undefined\" ? `fill=\"${fill}\"` : \"\"}\n\n        >\n            ${value}\n        </text>`;\n\n        const svgElement = new Element('svg');\n\n        svgElement.appendElement(preDefinedPatterns);\n\n        const {\n            advancedStanding,\n            passed,\n            currentEnrolment,\n            futureEnrolment,\n            remaining\n        } = Object.fromEntries(\n            Object.entries(scaleTemplate).map(([key, value]) => [key, Number.isFinite(+value) ? +value : 0])\n        );\n\n\n        const eachPartition = 6;\n        const total = advancedStanding + passed + currentEnrolment + futureEnrolment + remaining;\n        const totalPart = total / eachPartition;\n        const scaleStart = 3;\n        const scaleEnd = 762;\n        const scaleGap = (scaleEnd - scaleStart) / totalPart;\n        \n        const findScaleValue = (value) => (scaleEnd - scaleStart) * value / total;\n        const findActualValue = (value) => Number.parseInt((value - scaleStart) * total / (scaleEnd - scaleStart));\n\n\n        // Headers\n        const gElement = new Element('g');\n\n        gElement.appendElement(textElement(20, 15.2, \"Advanced standing: \" + advancedStanding, \"start\"));\n        gElement.appendElement(rectElement(3, 5, 12, 12, \"#cccccc\", \"0.7\", 3));\n        \n        gElement.appendElement(textElement(187, 15.2, \"Passed: \" + passed, \"start\"));\n        gElement.appendElement(rectElement(170, 5, 12, 12, \"url(#green)\", \"0.7\", 3));\n\n        gElement.appendElement(textElement(290, 15.2, \"Current enrolment: \" + currentEnrolment, \"start\"));\n        gElement.appendElement(rectElement(273, 5, 12, 12, \"url(#blue)\", \"0.7\", 3));\n\n        gElement.appendElement(textElement(451, 15.2, \"Future enrolment: \" + futureEnrolment, \"start\"));\n        gElement.appendElement(rectElement(434, 5, 12, 12, \"url(#lightblue)\", \"0.7\", 3));\n\n        gElement.appendElement(textElement(762, 15.2, \"Remaining: \" + remaining, \"end\"));\n        \n        svgElement.appendElement(gElement);\n        \n        // Draw plain scale\n        let stepCount = 0;\n        for( let i = scaleStart; i < scaleEnd; i += scaleGap, stepCount++) {\n            if( i + scaleGap > scaleEnd) stepCount++;\n            if (i === scaleStart) {\n                svgElement.appendElement(rectElement(i, 20, 1, 30, '#333333'));\n                svgElement.appendElement(textElement(i, 66, findActualValue(i)));\n            } else if (stepCount % 4 === 0) {\n                svgElement.appendElement(rectElement(i, 20, 1, 30, '#cccccc'));\n                svgElement.appendElement(textElement(i, 66, findActualValue(i)));\n                // console.log(Number.parseInt(i), findActualValue(i));\n            } else {\n                svgElement.appendElement(rectElement(i, 20, 1, 30, '#ebebeb'));\n                // console.log(Number.parseInt(i));\n            }\n        }\n        svgElement.appendElement(rectElement(scaleEnd, 20, 3, 30, '#333333'));\n        svgElement.appendElement(textElement(scaleEnd, 66, findActualValue(scaleEnd)));\n        svgElement.appendElement(textElement(scaleEnd, 82, \"Required\"));\n\n        // Mark values inside scale\n        let currentScaleLevel = scaleStart;\n        let valueWidth;\n\n        valueWidth = Number.parseInt(findScaleValue(advancedStanding)) || 1;\n        svgElement.appendElement(rectElement(currentScaleLevel + 2, 26, valueWidth - 1, 17, \"#cccccc\", 0.7, 3));\n        currentScaleLevel += valueWidth;\n        advancedStanding !== 0 && svgElement.appendElement(textElement(currentScaleLevel, 39, advancedStanding, \"end\", \"#000000\"));\n        \n        valueWidth = Number.parseInt(findScaleValue(passed)) || 1;\n        svgElement.appendElement(rectElement(currentScaleLevel + 2, 26, valueWidth - 1, 17, \"url(#green)\", 0.7, 3));\n        currentScaleLevel += valueWidth;\n        passed !== 0 && svgElement.appendElement(textElement(currentScaleLevel, 39, passed, \"end\", \"#000000\"));\n        \n        valueWidth = Number.parseInt(findScaleValue(currentEnrolment)) || 1;\n        svgElement.appendElement(rectElement(currentScaleLevel + 2, 26, valueWidth - 1, 17, \"url(#blue)\", 0.7, 3));\n        currentScaleLevel += valueWidth;\n        currentEnrolment !== 0 && svgElement.appendElement(textElement(currentScaleLevel, 39, currentEnrolment, \"end\", \"#000000\"));\n        \n        valueWidth = Number.parseInt(findScaleValue(futureEnrolment)) || 1;\n        svgElement.appendElement(rectElement(currentScaleLevel + 2, 26, valueWidth - 1, 17, \"url(#lightblue)\", 0.7, 3));\n        currentScaleLevel += valueWidth;\n        futureEnrolment !== 0 && svgElement.appendElement(textElement(currentScaleLevel, 39, futureEnrolment, \"end\", \"#000000\"));\n\n        valueWidth = Number.parseInt(findScaleValue(remaining)) || 1;\n        currentScaleLevel += valueWidth;\n\n        return svgElement.returnElement();\n    }\n\n    const {\n        scaleTemplate\n    } = JSON.parse(message.payload.join(''));\n\n    // console.log(createSvgScale(scaleTemplate));\n    context.set('scale', createSvgScale(scaleTemplate));\n\n    Object.keys(scaleTemplate).forEach (\n        (key) => context.set(key, scaleTemplate[key])\n    )\n    \n    return message;\n}\n\n\nfunction transform (message, context) {\n  studyStatementTemplateTransform(message, context)\n  return message;\n}\n"
+      }
+    },
+    "File Reader for CSS file": {
+      "class": "S3Accessor",
+      "config": {
+        "key": "{{{context.cssFile}}}",
+        "bucket": "bucket",
+        "accessKeyId": "accessKey",
+        "secretAccessKey": "secretAccessKey",
+        "binary": false,
+        "errorIfNoFile": true,
+        "allowConcurrent": false
+      }
+    },
+    "Reducer1": {
+      "class": "reducer",
+      "config": {
+        "accumulator": "payload"
+      }
+    },
+    "Store css in context": {
+      "class": "JavaScriptTransform",
+      "config": {
+        "pushUndefined": true,
+        "stopOnError": false,
+        "draft": false,
+        "code": "function transform (message, context) {\n  context.set('styleSheet', message.payload.join(''));\n  return message;\n}\n"
+      }
+    },
+    "HTML": {
+      "class": "htmlFormatter",
+      "config": {
+        "template": "<!DOCTYPE html>\n<html lang=\"en\">\n\t<head>\n\t\t<meta charset=\"UTF-8\" />\n\t\t<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n\t\t<title>State College Invoice Summary</title>\n\t\t<style>\n\t\t\t{{{context.styleSheet}}}\n\t\t</style>\n\t</head>\n\n\t<body>\n\t  <center>\n\t\t<div\n\t\t\tclass=\"header\"\n\t\t>\n\t\t\t<img\n\t\t\t\tclass=\"state-logo\"\n\t\t\t\tsrc=\"data:image/png;base64, {{{context.scLogo}}}\"\n\t\t\t\talt=\"SFIN STATE COLLEGE LOGO\"\n\t\t\t\twidth=\"140\"\n\t\t\t/>\n\t\t\t<p\n\t\t\t\tclass=\"location\"\n\t\t\t>\n\t\t\t\tUSA\n\t\t\t</p>\n\t\t</div>\n\t\t<div\n\t\t\tclass=\"invoice-details\"\n\t\t>\n\t\t\t<div class=\"margin-left-30\">\n\t\t\t\t<p\n\t\t\t\t\tid=\"topLeftStateColDetails\"\n\t\t\t\t\tclass=\"top-left-state-details\"\n\t\t\t\t>\n\t\t\t\t\t{{{context.topLeftStateColDetails}}}\n\t\t\t\t</p>\n\t\t\t</div>\n\n\t\t\t<div class=\"top-right-invoice\">\n\t\t\t\t<span\n\t\t\t\tclass=\"head\"\n\t\t\t\t>Sponsor Statement/Tax Invoice\n\t\t\t\t</span>\n\t\t\t\t<div\n\t\t\t\t\tclass=\"details\"\n\t\t\t\t>\n\t\t\t\t\t<div>\n\t\t\t\t\t\t<span> Sponsor Code: </span>\n\t\t\t\t\t\t<span class=\"sponserCode\">{{{context.sponserCode}}}</span\n\t\t\t\t\t\t>\n\t\t\t\t\t</div>\n\t\t\t\t\t<div>\n\t\t\t\t\t\t<span> Invoice Date: </span>\n\t\t\t\t\t\t<span class=\"invoiceDate\">{{{context.invoiceDate}}}</span\n\t\t\t\t\t\t>\n\t\t\t\t\t</div>\n\t\t\t\t\t<div>\n\t\t\t\t\t\t<span> Invoice Period: </span>\n\t\t\t\t\t\t<span class=\"invoicePeriod\">{{{context.invoicePeriod}}}</span\n\t\t\t\t\t\t>\n\t\t\t\t\t</div>\n\t\t\t\t\t<div>\n\t\t\t\t\t\t<span> Invoice No: </span>\n\t\t\t\t\t\t<span class=\"invoiceNo\">{{{context.invoiceNo}}}</span\n\t\t\t\t\t\t>\n\t\t\t\t\t</div>\n\t\t\t\t\t<div>\n\t\t\t\t\t\t<span> Due Date: </span>\n\t\t\t\t\t\t<span class=\"dueDate\">{{{context.dueDate}}}</span\n\t\t\t\t\t\t>\n\t\t\t\t\t</div>\n\t\t\t\t</div>\n\t\t\t</div>\n\t\t</div>\n\t\t<div class=\"invoice-main\">\n\t\t\t<div class=\"invoice-main-left\">\n\t\t\t\t<div class=\"for-style\"></div>\n\t\t\t\t<div class=\"for-style\"></div>\n\t\t\t\t<div class=\"invoice-summary\">\n\t\t\t\t\t<p\n\t\t\t\t\t\tclass=\"invoice-summary-title\"\n\t\t\t\t\t>\n\t\t\t\t\t\tINVOICE SUMMARY\n\t\t\t\t\t</p>\n\t\t\t\t\t<p\n\t\t\t\t\t\tclass=\"invoice-summary-details\"\n\t\t\t\t\t>\n\t\t\t\t\t\tUniversity Tuition Fees and Charges <br />\n\t\t\t\t\t\t(2025 SUMMER SEMESTER B)\n\t\t\t\t\t</p>\n\t\t\t\t\t<div\n\t\t\t\t\t\tclass=\"invoice-summary-total\"\n\t\t\t\t\t>\n\t\t\t\t\t\t<span\n\t\t\t\t\t\t>\n\t\t\t\t\t\t\tTotal invoice</span\n\t\t\t\t\t\t>\n\t\t\t\t\t\t<span\n\t\t\t\t\t\t\tid=\"totalInvoice\"\n\t\t\t\t\t\t>\n\t\t\t\t\t\t\t{{{context.totalInvoice}}}</span\n\t\t\t\t\t\t>\n\t\t\t\t\t</div>\n\t\t\t\t\t<div\n\t\t\t\t\t\tclass=\"invoice-summary-required\"\n\t\t\t\t\t>\n\t\t\t\t\t\t<span\n\t\t\t\t\t\t>\n\t\t\t\t\t\t\t<strong>Payment required</strong>\n\t\t\t\t\t\t</span>\n\t\t\t\t\t\t<span\n\t\t\t\t\t\tid=\"paymentRequired\"\n\t\t\t\t\t\t>\n\t\t\t\t\t\t\t<strong>{{{context.paymentRequired}}}</strong>\n\t\t\t\t\t\t</span>\n\t\t\t\t\t</div>\n\t\t\t\t</div>\n\t\t\t\t<div class=\"for-style\"></div>\n\t\t\t\t<div class=\"imvoice-main-left-bottom\">\n\t\t\t\t\t<span\n\t\t\t\t\t>\n\t\t\t\t\t\t<i\n\t\t\t\t\t\t\t>No VAT has been charged. This statement is correct\n\t\t\t\t\t\t\tas of the invoice date.\n\t\t\t\t\t\t</i></span\n\t\t\t\t\t>\n\t\t\t\t</div>\n\t\t\t\t<div class=\"imvoice-main-left-bottom color-blue\">\n\t\t\t\t\t<p\n\t\t\t\t\t\tid=\"address\"\n\t\t\t\t\t>\n\t\t\t\t\t\t{{{context.address}}}\n\t\t\t\t\t</p>\n\t\t\t\t</div>\n\t\t\t</div>\n\t\t\t<div class=\"invoice-main-right\">\n\t\t\t\t<div class=\"invoice-main-right-box\">\n\t\t\t\t\t<div\n\t\t\t\t\t\tclass=\"invoice-main-right-box-top\"\n\t\t\t\t\t>\n\t\t\t\t\t\t<span\n\t\t\t\t\t\t>\n\t\t\t\t\t\t\tPAYMENT REQUIRED</span\n\t\t\t\t\t\t>\n\t\t\t\t\t</div>\n\t\t\t\t\t<div\n\t\t\t\t\tclass=\"invoice-main-right-box-bottom\"\n\t\t\t\t\t>\n\t\t\t\t\t\t<span\n\t\t\t\t\t\t\tid=\"rightPaymentRequired\"\n\t\t\t\t\t\t>\n\t\t\t\t\t\t\t{{{context.paymentRequired}}}\n\t\t\t\t\t\t</span>\n\t\t\t\t\t\t<br />\n\t\t\t\t\t\t<span\n\t\t\t\t\t\t\tid=\"dueDate\"\n\t\t\t\t\t\t\tclass=\"font-size-12\"\n\t\t\t\t\t\t>\n\t\t\t\t\t\t\t{{{context.dueDate}}}</span\n\t\t\t\t\t\t>\n\t\t\t\t\t</div>\n\t\t\t\t</div>\n\t\t\t</div>\n\t\t</div>\n\t\t<div class=\"page-break-after\"></div>\n\t\t<div class=\"page2\">\n\t\t\t<div\n\t\t\t\tclass=\"header\"\n\t\t\t>\n\t\t\t\t<img\n\t\t\t\t\tclass=\"state-logo\"\n\t\t\t\t\tsrc=\"data:image/png;base64, {{{context.scLogo}}}\"\n\t\t\t\t\talt=\"SFIN STATE COLLEGE LOGO\"\n\t\t\t\t\twidth=\"140\"\n\t\t\t\t/>\n\t\t\t\t<p\n\t\t\t\tclass=\"location\"\n\t\t\t\t>\n\t\t\t\t\tUSA\n\t\t\t\t</p>\n\t\t\t</div>\n\t\t\t<div\n\t\t\t\tclass=\"invoice-details\"\n\t\t\t>\n\t\t\t\t<div class=\"for-style\"></div>\n\t\t\t\t<div class=\"top-right-invoice\">\n\t\t\t\t\t<span\n\t\t\t\t\tclass=\"head\"\n\t\t\t\t\t\t>Sponsor Statement/Tax Invoice\n\t\t\t\t\t</span>\n\t\t\t\t\t<div\n\t\t\t\t\tclass=\"details\"\n\t\t\t\t\t>\n\t\t\t\t\t\t<div\n\t\t\t\t\t\t>\n\t\t\t\t\t\t\t<span >\n\t\t\t\t\t\t\t\tSponsor Code:\n\t\t\t\t\t\t\t</span>\n\t\t\t\t\t\t\t<span class=\"sponserCode\"\n\t\t\t\t\t\t\t\t>{{{context.sponserCode}}}</span\n\t\t\t\t\t\t\t>\n\t\t\t\t\t\t</div>\n\t\t\t\t\t\t<div\n\t\t\t\t\t\t>\n\t\t\t\t\t\t\t<span >\n\t\t\t\t\t\t\t\tInvoice Date:\n\t\t\t\t\t\t\t</span>\n\t\t\t\t\t\t\t<span  class=\"invoiceDate\"\n\t\t\t\t\t\t\t\t>{{{context.invoiceDate}}}</span\n\t\t\t\t\t\t\t>\n\t\t\t\t\t\t</div>\n\t\t\t\t\t\t<div\n\t\t\t\t\t\t>\n\t\t\t\t\t\t\t<span >\n\t\t\t\t\t\t\t\tInvoice Period:\n\t\t\t\t\t\t\t</span>\n\t\t\t\t\t\t\t<span\n\t\t\t\t\t\t\t\t\n\t\t\t\t\t\t\t\tclass=\"invoicePeriod\"\n\t\t\t\t\t\t\t\t>{{{context.invoicePeriod}}}</span\n\t\t\t\t\t\t\t>\n\t\t\t\t\t\t</div>\n\t\t\t\t\t</div>\n\t\t\t\t</div>\n\t\t\t</div>\n\n\t\t\t<div class=\"fees-details\" >\n\t\t\t\t<div class=\"title\"\n\t\t\t\t>\n\t\t\t\t\tFees and Charges\n\t\t\t\t</div>\n\t\t\t\t<!-- Table sructure 152px + 150px + 50px + 76px * 3 -->\n\t\t\t\t<div class=\"table-head\">\n\t\t\t\t\t<span><strong>STUDENT</strong></span>\n\t\t\t\t\t<span><strong>UNIT</strong></span>\n\t\t\t\t\t<span><strong>TEACHING PERIOD</strong></span>\n\t\t\t\t\t<span><strong>CHARGES</strong></span>\n\t\t\t\t\t<span><strong>PAYMENT RECEIVED</strong></span>\n\t\t\t\t\t<span><strong>PAYMENT REQUIRED</strong></span>\n\t\t\t\t</div>\n\t\t\t\t<div id=\"tableData\">\n\t\t\t\t\t{{{context.tableData}}}\n\t\t\t\t</div>\n\t\t\t\t<div class=\"table-foot table-row-group\">\n\t\t\t\t\t<div>\n\t\t\t\t\t\t<div>TOTAL FEES AND CHARGES</div>\n\t\t\t\t\t\t<div></div>\n\t\t\t\t\t\t<div></div>\n\t\t\t\t\t\t<div id=\"tableFootCharges\">{{{context.tableFootCharges}}}</div>\n\t\t\t\t\t\t<div id=\"tableFootPaymentRec\">\n\t\t\t\t\t\t\t{{{context.tableFootPaymentRec}}}\n\t\t\t\t\t\t</div>\n\t\t\t\t\t\t<div id=\"tableFootPaymentReq\">\n\t\t\t\t\t\t\t{{{context.tableFootPaymentReq}}}\n\t\t\t\t\t\t</div>\n\t\t\t\t\t</div>\n\t\t\t\t</div>\n\t\t\t</div>\n\t\t\t<div\n\t\t\t\tclass=\"footer\"\n\t\t\t>\n\t\t\t\t<div class=\"for-style\"></div>\n\t\t\t\t<div class=\"main\">\n\t\t\t\t\t<p\n\t\t\t\t\t\t\n\t\t\t\t\t>\n\t\t\t\t\t\tYayasan State College University USA\n\t\t\t\t\t</p>\n\t\t\t\t\t<div class=\"for-style\"></div>\n\t\t\t\t\t<p\n\t\t\t\t\t>\n\t\t\t\t\t\t<strong>XXXXX XXXXXXXX</strong><br />\n\t\t\t\t\t\tFinance Manager\n\t\t\t\t\t</p>\n\t\t\t\t</div>\n\t\t\t</div>\n\t\t</div>\n\t\t</br>\n        <!--<div class=\"page-break-after\"></div>-->\n        </br></br></br></br></br></br></br></br></br></br></br></br></br></br>\n        </br></br></br></br></br></br></br></br></br></br></br></br></br></br>\n        <!-- Study Statement -->\n        <div class=\"scale-template\">\n    \t\t\t{{{context.scale}}}\t\n    \t\t</div>\n        <div class=\"page-break-after\"></div>\n        <!-- testamur -->\n        <div class=\"a4p flex-col-between-center\">\n            <h1 class=\"auto-spacing underline color-blue uppercase\">S t a t e &nbsp;C o l l e g e</h1>\n            <img class=\"testamur-logo\" src=\"data:image/png;base64, {{{context.scLogo}}}\" alt=\"State College Logo\"/>\n            <p class=\"testamur-text\">In the name and by the authority of the Council be it known that\n                <br/><br/><strong>Thamarai Selvan D</strong><br/><br/>\n                having fulfilled all the requirements and having passed all the prescribed assessments has on the seventeenth day of May 2023 been admitted to the degree of\n                <br/><br/><strong>Bachelor of Science Advanced - Research (Honours)</strong><br/>\n                with majors in Computational science and in Pure mathematics\n            </p>\n            <p class=\"testamur-text\">in token where of the Council has authorized the Common Seal of the University to be hereto affixed.</p>\n            <div class=\"flex-row-between testamur-bottom\">\n                <div class=\"chancellor\">\n                    <img src=\"data:image/png;base64, {{{context.chancellorSign}}}\" alt=\"Chancellor Signatur\" />\n                    <p>Chancellor</p>\n                </div>\n                <div class=\"vice-chancellor\">\n                    <img src=\"data:image/png;base64, {{{context.ViseChancellorSign}}}\"/>\n                    <p>Interim President and<br/> Vice-Chancellor</p>\n                </div>\n            </div>\n        </div>\n        <div class=\"page-break-after\"></div>\n        <!-- transcript -->\n        <div class=\"a4 transcript\">\n            <h1 class=\"uppercase \">Master Of Data Science</h1>\n        <div class=\"main-transcript \">\n            <div class=\"transcript-head\">\n                <div class=\"transcript-row\">\n                    <p>Teaching Period</p>\n                    <p>Credit Points</p>\n                    <p>Mark</p>\n                    <p>Grade</p>\n                </div>\n            </div>\n            <div class=\"transcript-segment\">\n                <div class=\"transcript-year\">\n                    <div class=\"transcript-row\">\n                        <p>2024</p>\n                    </div>\n                </div>\n                <div class=\"transcript-group\">\n                    <div class=\"transcript-row\">\n                        <p>ITI5126</p>\n                        <p>MASTERS THESIS PART 1</p>\n                        <p>MI-T2</p>\n                        <p>_</p>\n                        <p>-</p>\n                        <p>NE</p>\n                    </div>\n                    <div class=\"transcript-row\">\n                        <p>ITI5201</p>\n                        <p>MACHINE LEARNING</p>\n                        <p>MI-T2</p>\n                        <p>6</p>\n                        <p>81</p>\n                        <p>HD</p>\n                    </div>\n                    <div class=\"transcript-row\">\n                        <p>ITI5201</p>\n                        <p>MASTERS THESIS PART 2</p>\n                        <p>MI-T3</p>\n                        <p>-</p>\n                        <p></p>\n                        <p></p>\n                        <p>--INCOMPLETE--</p>\n                    </div>\n                    <div class=\"transcript-row\">\n                        <p>ITI5228</p>\n                        <p>MASTERS THESIS PART 3</p>\n                        <p>MI-T3</p>\n                        <p>-</p>\n                        <p></p>\n                        <p></p>\n                        <p>--INCOMPLETE--</p>\n                    </div>\n                    <div class=\"transcript-row\">\n                        <p>ITI5149</p>\n                        <p>APPLIED DATA ANALYSIS</p>\n                        <p>MI-T4</p>\n                        <p>6</p>\n                        <p></p>\n                        <p></p>\n                        <p>--INCOMPLETE--</p>\n                    </div>\n                    <div class=\"transcript-row\">\n                        <p>ITI5228</p>\n                        <p>MASTERS THESIS PART 3</p>\n                        <p>MI-T3</p>\n                        <p>-</p>\n                        <p></p>\n                        <p></p>\n                        <p>--INCOMPLETE--</p>\n                    </div>\n                </div>\n            </div>\n            <div class=\"transcript-segment\">\n                <div class=\"transcript-year\">\n                    <div class=\"transcript-row\">\n                        <p>2023</p>\n                    </div>\n                </div>\n                <div class=\"transcript-group\">\n                    <div class=\"transcript-row\">\n                        <p>ITI5125</p>\n                        <p>IT RESEARCH METHODS</p>\n                        <p>MI-T2</p>\n                        <p>6</p>\n                        <p>85</p>\n                        <p>HD</p>\n                    </div>\n                    <div class=\"transcript-row\">\n                        <p>ITI9137</p>\n                        <p>INTRODUCTION TO COMPUTER ARCHITECTURE AND \n                            NETWORKS</p>\n                        <p>MI-T2</p>\n                        <p>6</p>\n                        <p>85</p>\n                        <p>HD</p>\n                    </div>\n                    <div class=\"transcript-row\">\n                        <p>ITI5147</p>\n                        <p>DATA EXPLORATION AND VISUALISATION</p>\n                        <p>MI-T3</p>\n                        <p>6</p>\n                        <p>78</p>\n                        <p>D</p>\n                    </div>\n                    <div class=\"transcript-row\">\n                        <p>ITI9004</p>\n                        <p>MATHEMATICAL FOUNDATIONS FOR DATA SCIENCE</p>\n                        <p>MI-T3</p>\n                        <p>6</p>\n                        <p>76</p>\n                        <p>D</p>\n                    </div>\n                    <div class=\"transcript-row\">\n                        <p>ITI5197</p>\n                        <p>STATISTICAL DATA MODELLING</p>\n                        <p>MI-T4</p>\n                        <p>6</p>\n                        <p>72</p>\n                        <p>D</p>\n                    </div>\n                    <div class=\"transcript-row\">\n                        <p>ITI5196</p>\n                        <p>DATA WRANGLING</p>\n                        <p>MI-T1</p>\n                        <p>6</p>\n                        <p>81</p>\n                        <p>HD</p>\n                    </div>\n                    <div class=\"transcript-row\">\n                        <p>ITI5202</p>\n                        <p>DATA PROCESSING FOR BIG DATA</p>\n                        <p>MI-T1</p>\n                        <p>6</p>\n                        <p>78</p>\n                        <p>D</p>\n                    </div>\n                </div>\n            </div>\n            <div class=\"transcript-segment\">\n                <div class=\"transcript-year\">\n                    <div class=\"transcript-row\">\n                        <p>2022</p>\n                    </div>\n                </div>\n                <div class=\"transcript-group\">\n                    <div class=\"transcript-row\">\n                        <p>ITI9132</p>\n                        <p>INTRODUCTION TO DATABASES</p>\n                        <p>MI-T1</p>\n                        <p>6</p>\n                        <p>75</p>\n                        <p>D</p>\n                    </div>\n                    <div class=\"transcript-row\">\n                        <p>ITI9136</p>\n                        <p>ALGORITHMS AND PROGRAMMING FOUNDATIONS IN \n                            PYTHON</p>\n                        <p>MI-T1</p>\n                        <p>6</p>\n                        <p>88</p>\n                        <p>HD</p>\n                    </div>\n                </div>\n            </div>\n        </div>\n        </div>\n        <div class=\"page-break-after\"></div>\n        <!-- ahegs -->\n        <div class=\"a4\">\n\t\t\t<div class=\"ahegs-page\">\n\t\t\t\t<div class=\"ahegs-header\">\n\t\t\t\t\t<img\n                        src=\"data:image/png;base64, {{{context.scLogo}}}\"\n\t\t\t\t\t\talt=\"State College Logo\"\n\t\t\t\t\t/>\n\t\t\t\t</div>\n\t\t\t\t<div class=\"ahegs-main\">\n\t\t\t\t\t<div class=\"ahegs-table\">\n\t\t\t\t\t\t<div class=\"ahegs-head\">\n\t\t\t\t\t\t\t<div class=\"ahegs-row\">\n\t\t\t\t\t\t\t\t<p>Level</p>\n\t\t\t\t\t\t\t\t<p>Summary</p>\n\t\t\t\t\t\t\t\t<p>Qualification Type</p>\n\t\t\t\t\t\t\t</div>\n\t\t\t\t\t\t</div>\n\t\t\t\t\t\t<div class=\"ahegs-data\">\n\t\t\t\t\t\t\t<div class=\"ahegs-row\">\n\t\t\t\t\t\t\t\t<p>Level 1</p>\n\t\t\t\t\t\t\t\t<p>\n\t\t\t\t\t\t\t\t\tGraduates at this level will have knowledge\n\t\t\t\t\t\t\t\t\tand skills for initial work, community\n\t\t\t\t\t\t\t\t\tinvolvement and/or further learning\n\t\t\t\t\t\t\t\t</p>\n\t\t\t\t\t\t\t\t<p>Certificate I</p>\n\t\t\t\t\t\t\t</div>\n\t\t\t\t\t\t\t<div class=\"ahegs-row\">\n\t\t\t\t\t\t\t\t<p>Level 1</p>\n\t\t\t\t\t\t\t\t<p>\n\t\t\t\t\t\t\t\t\tGraduates at this level will have knowledge\n\t\t\t\t\t\t\t\t\tand skills for initial work, community\n\t\t\t\t\t\t\t\t\tinvolvement and/or further learning\n\t\t\t\t\t\t\t\t</p>\n\t\t\t\t\t\t\t\t<p>Certificate I</p>\n\t\t\t\t\t\t\t</div>\n\t\t\t\t\t\t\t<div class=\"ahegs-row\">\n\t\t\t\t\t\t\t\t<p>Level 1</p>\n\t\t\t\t\t\t\t\t<p>\n\t\t\t\t\t\t\t\t\tGraduates at this level will have knowledge\n\t\t\t\t\t\t\t\t\tand skills for initial work, community\n\t\t\t\t\t\t\t\t\tinvolvement and/or further learning\n\t\t\t\t\t\t\t\t</p>\n\t\t\t\t\t\t\t\t<p>Certificate I</p>\n\t\t\t\t\t\t\t</div>\n\t\t\t\t\t\t\t<div class=\"ahegs-row\">\n\t\t\t\t\t\t\t\t<p>Level 1</p>\n\t\t\t\t\t\t\t\t<p>\n\t\t\t\t\t\t\t\t\tGraduates at this level will have knowledge\n\t\t\t\t\t\t\t\t\tand skills for initial work, community\n\t\t\t\t\t\t\t\t\tinvolvement and/or further learning\n\t\t\t\t\t\t\t\t</p>\n\t\t\t\t\t\t\t\t<p>Certificate I</p>\n\t\t\t\t\t\t\t</div>\n\t\t\t\t\t\t\t<div class=\"ahegs-row\">\n\t\t\t\t\t\t\t\t<p>Level 1</p>\n\t\t\t\t\t\t\t\t<p>\n\t\t\t\t\t\t\t\t\tGraduates at this level will have knowledge\n\t\t\t\t\t\t\t\t\tand skills for initial work, community\n\t\t\t\t\t\t\t\t\tinvolvement and/or further learning\n\t\t\t\t\t\t\t\t</p>\n\t\t\t\t\t\t\t\t<p>Certificate I</p>\n\t\t\t\t\t\t\t</div>\n\t\t\t\t\t\t</div>\n\t\t\t\t\t</div>\n                    As at the publication of this document, the Undergraduate Certificate qualification type must not be conferred after 30 June 2025. Undergraduate\nCertificates that have been conferred prior to this date will continue to be recognised as valid AQF qualifications.\n\n\t\t\t\t</div>\n                <div class=\"ahegs-footer\">\n                    <img src=\"data:image/png;base64, {{{context.globe}}}\" alt=\"Globe\"/>\n                    <p class=\"text\">State College guarantees this document’s authenticity when accessed through the My eQuals portal. When viewed online,\n                        verify security by the presence of the ‘Certified’ blue ribbon above the document. PDF documents also contain a blue ribbon stating\n                        ‘Certified by State College University... all signatures are valid’ in the Signature Panel above the document. State College University cannot\n                        verify this document’s authenticity in printed format.\n                </div>\n\t\t\t</div>\n\t\t</div>\n\t\t</center>\n\t</body>\n</html>\n"
+      }
+    },
+    "Create PDF": {
+      "class": "CreatePdf",
+      "config": {
+        "detail": {
+          "orientation": "portrait",
+          "pagination": true,
+          "paginationPosition": "header"
+        },
+        "ignoreErrors": false,
+        "errorPath": "errorMentioned"
+      }
+    },
+    "File Writer": {
+      "class": "s3sink",
+      "config": {
+        "key": "{{{context.fileName}}}",
+        "addNewlineAfterEachMessage": false,
+        "includeTotalCount": false,
+        "generatePresignedUrl": true,
+        "bucket": "bucket",
+        "accessKeyId": "accessKey",
+        "secretAccessKey": "secretAccessKey",
+        "writeImmediately": false,
+        "utfEncoding": "utf-8"
+      }
+    },
+    "JavaScript Transform for passing array to zip": {
+      "class": "JavaScriptTransform",
+      "config": {
+        "pushUndefined": true,
+        "stopOnError": false,
+        "draft": false,
+        "code": "function transform (message, context) {\n  // Put your code here.\n  message.payload = {\n    testFiles:[context.get(\"fileName\")],\n  }\n  return message;\n}\n"
+      }
+    },
+    "Create Zip File": {
+      "class": "ZipFile",
+      "config": {
+        "fileNamePath": "$.testFiles",
+        "key": "{{{context.outZip}}}"
+      }
+    },
+    "File Reader for Zip file": {
+      "class": "S3Accessor",
+      "config": {
+        "key": "{{{context.__pipelineName}}}/{{{context.__runId}}}/{{{context.outZip}}}",
+        "bucket": "bucket",
+        "accessKeyId": "accessKey",
+        "secretAccessKey": "secretAccessKey",
+        "binary": true,
+        "errorIfNoFile": false,
+        "allowConcurrent": false
+      }
+    },
+    "File Writer for writing Zip file for the view": {
+      "class": "s3sink",
+      "config": {
+        "key": "FileWriter__{{{context.outZip}}}",
+        "addNewlineAfterEachMessage": false,
+        "includeTotalCount": false,
+        "generatePresignedUrl": true,
+        "bucket": "bucket",
+        "accessKeyId": "accessKey",
+        "secretAccessKey": "secretAccessKey",
+        "writeImmediately": false,
+        "utfEncoding": "utf-8"
+      }
+    }
+  }
+}
