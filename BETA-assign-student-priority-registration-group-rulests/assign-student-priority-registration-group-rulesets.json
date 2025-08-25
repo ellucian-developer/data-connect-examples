@@ -1,0 +1,664 @@
+{
+  "name": "AssignStudentPriorityRegistrationGroupRulesetsExample1",
+  "parameters": [
+    {
+      "name": "ethosApiKey",
+      "type": "string",
+      "required": true,
+      "sensitive": true
+    }
+  ],
+  "pipeline": [
+    "Ethos Proxy Get Academic Standing/Dean's List Desc",
+    "Ethos Proxy Get Sport Desc",
+    "Ethos Consume Event - Get student PF status change",
+    "Ethos Proxy Get Student GUID",
+    "Ethos Proxy Get Student Classification",
+    "JavaScript Transform - Filter Codes for student",
+    "JavaScript Transform Prepare Info",
+    "Reducer",
+    "JavaScript Transform - Format message",
+    "Run Ruleset",
+    "For Each Student Evaluation",
+    "JavaScript Transform Save input/output values",
+    "Delimited Formatter",
+    "File Writer",
+    "Ethos Consume Confirm"
+  ],
+  "segments": {
+    "Ethos Proxy Get Academic Standing/Dean's List Desc": {
+      "class": "ethosProxyGet",
+      "config": {
+        "resource": "academic-standing-codes",
+        "acceptVersions": [
+          "latest"
+        ],
+        "target": "academicStandingTypes",
+        "cache": false,
+        "ignoreErrors": false
+      }
+    },
+    "Ethos Proxy Get Sport Desc": {
+      "class": "ethosProxyGet",
+      "config": {
+        "resource": "student-activity-codes",
+        "acceptVersions": [
+          "1"
+        ],
+        "target": "sportTypes",
+        "cache": false,
+        "ignoreErrors": false
+      }
+    },
+    "Ethos Consume Event - Get student PF status change": {
+      "class": "ethosConsumeChangeNotifications",
+      "config": {
+        "businessEvents": true,
+        "target": "businessEvent",
+        "ignoreErrors": false
+      }
+    },
+    "Ethos Proxy Get Student GUID": {
+      "class": "ethosProxyGet",
+      "config": {
+        "resource": "students?criteria={\"person\": {\"id\": \"{{{msg.payload.businessEvent.content.additionalData.gorguidGuid}}}\"}}",
+        "acceptVersions": [
+          "latest"
+        ],
+        "target": "studentGuidTypes",
+        "cache": false,
+        "ignoreErrors": false
+      }
+    },
+    "Ethos Proxy Get Student Classification": {
+      "class": "ethosProxyGet",
+      "config": {
+        "resource": "student-classifications",
+        "acceptVersions": [
+          "7"
+        ],
+        "idFromPayload": "$.studentGuidTypes.0.levelClassifications.0.latestClassification.id",
+        "target": "studentClassificationTypes",
+        "cache": false,
+        "ignoreErrors": false
+      }
+    },
+    "JavaScript Transform - Filter Codes for student": {
+      "class": "JavaScriptTransform",
+      "config": {
+        "pushUndefined": true,
+        "stopOnError": false,
+        "draft": false,
+        "code": "function transform (message, context) {\n  const {\n    academicStandingTypes,\n    sportTypes,\n    studentGuidTypes,\n    businessEvent\n  } = message.payload;\n  \n  const incomingAcdCode = businessEvent.content.additionalData.shrttrmAstdCodeEndOfTerm || null;\n  message.payload.incomingAcdCode=incomingAcdCode;\n  const incomingDlCode = businessEvent.content.additionalData.shrttrmAstdCodeDl || null;\n  message.payload.incomingDlCode=incomingDlCode;\n  const incomingSportCode = businessEvent.content.additionalData.sgrsprtActcCode || null;\n  message.payload.incomingSportCode=incomingSportCode;\n  \n\n  //filter for academic standing codes\n  if(incomingAcdCode !== null) {\n    message.payload.newAcdType = academicStandingTypes.filter(acd => acd.code === incomingAcdCode)\n  }\n  \n  //filter for dean's list code where \"deansListInd\": \"Y\"\n  if(incomingDlCode !== null) {\n    message.payload.newDlType = academicStandingTypes.filter(dl => dl.code === incomingDlCode)\n  }\n  \n  //filter for sport codes\n    if(incomingSportCode !== null) {\n    message.payload.newSportType = sportTypes.filter(sprt => sprt.code === incomingSportCode)\n  }\n  \n  \n  delete message.payload.academicStandingTypes;\n  delete message.payload.sportTypes;\n  delete message.payload.studentGuidTypes;\n  \n  return message;\n}\n"
+      }
+    },
+    "JavaScript Transform Prepare Info": {
+      "class": "JavaScriptTransform",
+      "config": {
+        "pushUndefined": true,
+        "stopOnError": false,
+        "draft": false,
+        "code": "function transform (message, context) {\n  // Put your code here.\n\nconst additionalData = message.payload.businessEvent.content.additionalData || {};\n\nmessage.header={\n  BusinessEventID: message.payload.businessEvent.id\n}\n\n  message.payload = {\n        \n        FullTimeIndicator: message.payload.businessEvent.content.changeData.sgbstdnFullPartInd || null,\n        FirstName: additionalData.spridenFirstName || null,\n        LastName: additionalData.spridenLastName || null,\n        AstdCodeEndOfTerm: additionalData.shrttrmAstdCodeEndOfTerm || null,\n        AstdCodeEndOfTermDesc: message?.payload?.newAcdType?.[0]?.desc ?? null,\n        AstdCodeDL: additionalData.shrttrmAstdCodeDl || null,\n        AstdCodeDLDesc: message?.payload?.newDlType?.[0]?.desc ?? null,\n        SportCode: additionalData.sgrsprtActcCode || null,\n        SportCodeDesc: message?.payload?.newSportType?.[0]?.desc ?? null,\n        VetCode: additionalData.spbpersVeraInd || null,\n        StudentClassificationCode: message.payload.studentClassificationTypes.code || null,\n        StudentClassificationDesc: message.payload.studentClassificationTypes.title || null\n    \n  };\nreturn message;\n}\n"
+      }
+    },
+    "Reducer": {
+      "class": "reducer",
+      "config": {
+        "accumulator": "payload"
+      }
+    },
+    "JavaScript Transform - Format message": {
+      "class": "JavaScriptTransform",
+      "config": {
+        "pushUndefined": true,
+        "stopOnError": false,
+        "draft": false,
+        "code": "function transform (message, context) {\n  // Put your code here.\n  message.payload= {\n    rulesetData:[...message.payload],\n    isArray:[...message.payload].length>1\n  }\n  \n  return message;\n}\n"
+      }
+    },
+    "Run Ruleset": {
+      "class": "RunRuleset",
+      "config": {
+        "ruleset": {
+          "name": "FTchangeEvaluateStudentRegistrationGroup",
+          "facts": [
+            {
+              "id": "ee4d4955-ab71-4b62-9f45-e15486d4e890",
+              "name": "constituent-persons.names.surnames.type.code",
+              "group": "Advancement",
+              "dataType": "string",
+              "displayName": "Constituent Person Name Surname Type Code",
+              "localization": {
+                "es": {
+                  "group": "Advancement",
+                  "displayName": "Constituent Person Name Surname Type Code"
+                },
+                "en-AU": {
+                  "group": "Advancement",
+                  "displayName": "Constituent Person Name Surname Type Code"
+                },
+                "en-GB": {
+                  "group": "Advancement",
+                  "displayName": "Constituent Person Name Surname Type Code"
+                },
+                "en-US": {
+                  "group": "Advancement",
+                  "displayName": "Constituent Person Name Surname Type Code"
+                },
+                "fr-CA": {
+                  "group": "Advancement",
+                  "displayName": "Constituent Person Name Surname Type Code"
+                }
+              }
+            },
+            {
+              "id": "a1df9b52-e5d9-47a9-a64d-0d179194f48a",
+              "name": "constituent-persons.names.personalNames.type.code",
+              "group": "Advancement",
+              "dataType": "string",
+              "displayName": "Constituent Person Name Type Code",
+              "localization": {
+                "es": {
+                  "group": "Advancement",
+                  "displayName": "Constituent Person Name Type Code"
+                },
+                "en-AU": {
+                  "group": "Advancement",
+                  "displayName": "Constituent Person Name Type Code"
+                },
+                "en-GB": {
+                  "group": "Advancement",
+                  "displayName": "Constituent Person Name Type Code"
+                },
+                "en-US": {
+                  "group": "Advancement",
+                  "displayName": "Constituent Person Name Type Code"
+                },
+                "fr-CA": {
+                  "group": "Advancement",
+                  "displayName": "Constituent Person Name Type Code"
+                }
+              }
+            },
+            {
+              "id": "b933fd8b-1be0-4367-944c-81467b8900db",
+              "name": "persons.veteranStatus.detail.code",
+              "group": "Foundation",
+              "dataType": "string",
+              "displayName": "Person Veteran Status Code",
+              "localization": {
+                "es": {
+                  "group": "Foundation",
+                  "displayName": "Person Veteran Status Code"
+                },
+                "en-AU": {
+                  "group": "Foundation",
+                  "displayName": "Person Veteran Status Code"
+                },
+                "en-GB": {
+                  "group": "Foundation",
+                  "displayName": "Person Veteran Status Code"
+                },
+                "en-US": {
+                  "group": "Foundation",
+                  "displayName": "Person Veteran Status Code"
+                },
+                "fr-CA": {
+                  "group": "Foundation",
+                  "displayName": "Person Veteran Status Code"
+                }
+              }
+            },
+            {
+              "id": "d412a75c-bb9e-4455-8276-3073021cdecf",
+              "name": "academicStandingDeansListCode",
+              "group": "Registration",
+              "dataType": "string",
+              "displayName": "Academic Standing-Deans List Code",
+              "localization": {
+                "es": {
+                  "group": "Registration",
+                  "displayName": "Academic Standing-Deans List Code"
+                },
+                "en-AU": {
+                  "group": "Registration",
+                  "displayName": "Academic Standing-Deans List Code"
+                },
+                "en-GB": {
+                  "group": "Registration",
+                  "displayName": "Academic Standing-Deans List Code"
+                },
+                "en-US": {
+                  "group": "Registration",
+                  "displayName": "Academic Standing-Deans List Code"
+                },
+                "fr-CA": {
+                  "group": "Registration",
+                  "displayName": "Academic Standing-Deans List Code"
+                }
+              }
+            },
+            {
+              "id": "6bf766aa-6c08-47e8-a1ef-12b3fe94e22f",
+              "name": "sportActivityCode",
+              "group": "Registration",
+              "dataType": "string",
+              "displayName": "Sport Activity Code",
+              "localization": {
+                "es": {
+                  "group": "Registration",
+                  "displayName": "Sport Activity Code"
+                },
+                "en-AU": {
+                  "group": "Registration",
+                  "displayName": "Sport Activity Code"
+                },
+                "en-GB": {
+                  "group": "Registration",
+                  "displayName": "Sport Activity Code"
+                },
+                "en-US": {
+                  "group": "Registration",
+                  "displayName": "Sport Activity Code"
+                },
+                "fr-CA": {
+                  "group": "Registration",
+                  "displayName": "Sport Activity Code"
+                }
+              }
+            },
+            {
+              "id": "5e42d094-a6a6-4795-a6a1-e9673fc3c5a7",
+              "name": "sportStatus",
+              "group": "Registration",
+              "dataType": "string",
+              "displayName": "Sport Status",
+              "localization": {
+                "es": {
+                  "group": "Registration",
+                  "displayName": "Sport Status"
+                },
+                "en-AU": {
+                  "group": "Registration",
+                  "displayName": "Sport Status"
+                },
+                "en-GB": {
+                  "group": "Registration",
+                  "displayName": "Sport Status"
+                },
+                "en-US": {
+                  "group": "Registration",
+                  "displayName": "Sport Status"
+                },
+                "fr-CA": {
+                  "group": "Registration",
+                  "displayName": "Sport Status"
+                }
+              }
+            },
+            {
+              "id": "e30c9c44-328f-4f8b-9ce1-604d91f9ed8d",
+              "name": "student-academic-programs-submissions.admissionClassification.admissionCategory.code",
+              "group": "Student",
+              "dataType": "string",
+              "displayName": "Academic Program Submission Admission Classification Category Code",
+              "localization": {
+                "es": {
+                  "group": "Student",
+                  "displayName": "Academic Program Submission Admission Classification Category Code"
+                },
+                "en-AU": {
+                  "group": "Student",
+                  "displayName": "Academic Program Submission Admission Classification Category Code"
+                },
+                "en-GB": {
+                  "group": "Student",
+                  "displayName": "Academic Program Submission Admission Classification Category Code"
+                },
+                "en-US": {
+                  "group": "Student",
+                  "displayName": "Academic Program Submission Admission Classification Category Code"
+                },
+                "fr-CA": {
+                  "group": "Student",
+                  "displayName": "Academic Program Submission Admission Classification Category Code"
+                }
+              }
+            },
+            {
+              "id": "9d565f3b-0339-48b4-a6a2-248a08de84c6",
+              "name": "student-engagement-indicators.student.code",
+              "group": "Student",
+              "dataType": "string",
+              "displayName": "Engagement Indicator Code",
+              "localization": {
+                "es": {
+                  "group": "Student",
+                  "displayName": "Engagement Indicator Code"
+                },
+                "en-AU": {
+                  "group": "Student",
+                  "displayName": "Engagement Indicator Code"
+                },
+                "en-GB": {
+                  "group": "Student",
+                  "displayName": "Engagement Indicator Code"
+                },
+                "en-US": {
+                  "group": "Student",
+                  "displayName": "Engagement Indicator Code"
+                },
+                "fr-CA": {
+                  "group": "Student",
+                  "displayName": "Engagement Indicator Code"
+                }
+              }
+            },
+            {
+              "id": "59e32e69-250d-47a6-9a63-2c438d3a9385",
+              "name": "sections.descriptions.type.code",
+              "group": "Student",
+              "dataType": "string",
+              "displayName": "Section Description Type Code",
+              "localization": {
+                "es": {
+                  "group": "Student",
+                  "displayName": "Section Description Type Code"
+                },
+                "en-AU": {
+                  "group": "Student",
+                  "displayName": "Section Description Type Code"
+                },
+                "en-GB": {
+                  "group": "Student",
+                  "displayName": "Section Description Type Code"
+                },
+                "en-US": {
+                  "group": "Student",
+                  "displayName": "Section Description Type Code"
+                },
+                "fr-CA": {
+                  "group": "Student",
+                  "displayName": "Section Description Type Code"
+                }
+              }
+            },
+            {
+              "id": "385c9f0a-ff0e-4c75-a065-297cd321d093",
+              "name": "student-academic-programs.academicLevel.code",
+              "group": "Student",
+              "dataType": "string",
+              "displayName": "Student Academic Program Level Code",
+              "localization": {
+                "es": {
+                  "group": "Student",
+                  "displayName": "Student Academic Program Level Code"
+                },
+                "en-AU": {
+                  "group": "Student",
+                  "displayName": "Student Academic Program Level Code"
+                },
+                "en-GB": {
+                  "group": "Student",
+                  "displayName": "Student Academic Program Level Code"
+                },
+                "en-US": {
+                  "group": "Student",
+                  "displayName": "Student Academic Program Level Code"
+                },
+                "fr-CA": {
+                  "group": "Student",
+                  "displayName": "Student Academic Program Level Code"
+                }
+              }
+            },
+            {
+              "id": "de80df83-0594-4449-b728-1a8abfec613e",
+              "name": "student-academic-standings.standing.code",
+              "group": "Student",
+              "dataType": "string",
+              "displayName": "Student Academic Standing Code",
+              "localization": {
+                "es": {
+                  "group": "Student",
+                  "displayName": "Student Academic Standing Code"
+                },
+                "en-AU": {
+                  "group": "Student",
+                  "displayName": "Student Academic Standing Code"
+                },
+                "en-GB": {
+                  "group": "Student",
+                  "displayName": "Student Academic Standing Code"
+                },
+                "en-US": {
+                  "group": "Student",
+                  "displayName": "Student Academic Standing Code"
+                },
+                "fr-CA": {
+                  "group": "Student",
+                  "displayName": "Student Academic Standing Code"
+                }
+              }
+            },
+            {
+              "id": "8d5034da-5fb6-44a3-a1ed-b28c35db0cf1",
+              "name": "students.levelClassifications.latestClassification.code",
+              "group": "Student",
+              "dataType": "string",
+              "displayName": "Student Level Classification Latest Code",
+              "localization": {
+                "es": {
+                  "group": "Student",
+                  "displayName": "Student Level Classification Latest Code"
+                },
+                "en-AU": {
+                  "group": "Student",
+                  "displayName": "Student Level Classification Latest Code"
+                },
+                "en-GB": {
+                  "group": "Student",
+                  "displayName": "Student Level Classification Latest Code"
+                },
+                "en-US": {
+                  "group": "Student",
+                  "displayName": "Student Level Classification Latest Code"
+                },
+                "fr-CA": {
+                  "group": "Student",
+                  "displayName": "Student Level Classification Latest Code"
+                }
+              }
+            }
+          ],
+          "label": "FTchangeEvaluateStudentRegistrationGroup",
+          "status": "published",
+          "version": "12.0.0",
+          "tenantId": "be671fc3-61cc-4df9-9d8b-c66da861b455",
+          "createdBy": "44dfb920-3030-4097-8555-80524d8eabcd",
+          "createdOn": "2025-08-06T14:22:09.649Z",
+          "namespace": "data-connect",
+          "rulesetId": "33b91fc0-c8bd-4697-8a7f-110e6dc2f8c3",
+          "lastModifiedBy": "44dfb920-3030-4097-8555-80524d8eabcd",
+          "lastModifiedOn": "2025-08-06T14:23:19.651Z",
+          "versionGroupId": "1530018e-4c3b-49c5-a4e2-b7062a114716"
+        },
+        "mapValues": [
+          {
+            "group": "Advancement",
+            "source": "$.rulesetData[*]",
+            "element": "constituent-persons.names.surnames.type.code",
+            "dataType": "string",
+            "mapValue": "$.LastName"
+          },
+          {
+            "group": "Advancement",
+            "source": "$.rulesetData[*]",
+            "element": "constituent-persons.names.personalNames.type.code",
+            "dataType": "string",
+            "mapValue": "$.FirstName"
+          },
+          {
+            "group": "Foundation",
+            "source": "$.rulesetData[*]",
+            "element": "persons.veteranStatus.detail.code",
+            "dataType": "string",
+            "mapValue": "$.VetCode"
+          },
+          {
+            "group": "Registration",
+            "source": "$.rulesetData[*]",
+            "element": "academicStandingDeansListCode",
+            "dataType": "string",
+            "mapValue": "$.AstdCodeDL"
+          },
+          {
+            "group": "Registration",
+            "source": "$.rulesetData[*]",
+            "element": "sportActivityCode",
+            "dataType": "string",
+            "mapValue": "$.SportCode"
+          },
+          {
+            "group": "Registration",
+            "source": "$.rulesetData[*]",
+            "element": "sportStatus",
+            "dataType": "string",
+            "mapValue": "$.SportCodeDesc"
+          },
+          {
+            "group": "Student",
+            "source": "$.rulesetData[*]",
+            "element": "student-academic-programs-submissions.admissionClassification.admissionCategory.code",
+            "dataType": "string",
+            "mapValue": "$.StudentClassificationDesc"
+          },
+          {
+            "group": "Student",
+            "source": "$.rulesetData[*]",
+            "element": "student-engagement-indicators.student.code",
+            "dataType": "string",
+            "mapValue": "$.FullTimeIndicator"
+          },
+          {
+            "group": "Student",
+            "source": "$.rulesetData[*]",
+            "element": "sections.descriptions.type.code",
+            "dataType": "string",
+            "mapValue": "$.AstdCodeDLDesc"
+          },
+          {
+            "group": "Student",
+            "source": "$.rulesetData[*]",
+            "element": "student-academic-programs.academicLevel.code",
+            "dataType": "string",
+            "mapValue": "$.AstdCodeEndOfTermDesc"
+          },
+          {
+            "group": "Student",
+            "source": "$.rulesetData[*]",
+            "element": "student-academic-standings.standing.code",
+            "dataType": "string",
+            "mapValue": "$.AstdCodeEndOfTerm"
+          },
+          {
+            "group": "Student",
+            "source": "$.rulesetData[*]",
+            "element": "students.levelClassifications.latestClassification.code",
+            "dataType": "string",
+            "mapValue": "$.StudentClassificationCode"
+          }
+        ],
+        "ignoreErrors": false
+      }
+    },
+    "For Each Student Evaluation": {
+      "class": "forEach",
+      "if": "message.payload.isArray",
+      "config": {
+        "source": "payload.evaluations"
+      }
+    },
+    "JavaScript Transform Save input/output values": {
+      "class": "JavaScriptTransform",
+      "config": {
+        "pushUndefined": true,
+        "stopOnError": false,
+        "draft": false,
+        "code": "function transform (message, context) {\n  // Put your code here.\n\nconst {inputs, outputs} = message.payload;\n\n\n  message.payload = {\n        \n        LastName: inputs[0].value || null,\n        FirstName: inputs[1].value || null,\n        VetCode: inputs[2].value || null,\n        AstdCodeDL: inputs[3].value || null,\n        SportCode: inputs[4].value || null,\n        SportDesc: inputs[5].value || null,\n        StudentClassificationDesc: inputs[6].value || null,\n        FullTimeIndicator: inputs[7].value || null,\n        AstdCodeDLDesc: inputs[8].value || null,\n        AstdCodeEndOfTermDesc: inputs[9].value || null,\n        AstdCodeEndOfTerm: inputs[10].value || null,\n        StudentClassificationCode: inputs[11].value || null,\n        StudentPriorityGroup: outputs[0]?.Value || \"No match\"\n  };\nreturn message;\n}\n"
+      }
+    },
+    "Delimited Formatter": {
+      "class": "delimitedFormatter",
+      "config": {
+        "normalizeColumns": false,
+        "detail": {
+          "columns": [
+            {
+              "path": "FirstName"
+            },
+            {
+              "path": "LastName"
+            },
+            {
+              "path": "StudentClassificationCode"
+            },
+            {
+              "path": "StudentClassificationDesc"
+            },
+            {
+              "path": "FullTimeIndicator"
+            },
+            {
+              "path": "AstdCodeEndOfTerm",
+              "label": "Academic Standing"
+            },
+            {
+              "path": "AstdCodeEndOfTermDesc",
+              "label": "Academic Standing Desc"
+            },
+            {
+              "path": "AstdCodeDL",
+              "label": "Dean's List"
+            },
+            {
+              "path": "AstdCodeDLDesc",
+              "label": "Dean's List Desc"
+            },
+            {
+              "path": "SportCode"
+            },
+            {
+              "path": "SportDesc"
+            },
+            {
+              "path": "VetCode"
+            },
+            {
+              "path": "StudentPriorityGroup"
+            }
+          ],
+          "columnHeaders": true
+        }
+      }
+    },
+    "File Writer": {
+      "class": "s3sink",
+      "config": {
+        "key": "StudentPriorityAssignmentReport.csv",
+        "addNewlineAfterEachMessage": true,
+        "includeTotalCount": false,
+        "generatePresignedUrl": true,
+        "writeImmediately": false,
+        "utfEncoding": "utf-8"
+      }
+    },
+    "Ethos Consume Confirm": {
+      "class": "ethosConsumeConfirm",
+      "config": {
+        "lastProcessedId": "{{message.header.BusinessEventID}}",
+        "ignoreErrors": false
+      }
+    }
+  }
+}
