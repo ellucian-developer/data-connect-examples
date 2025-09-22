@@ -98,7 +98,7 @@
         "pushUndefined": true,
         "stopOnError": false,
         "draft": false,
-        "code": "function transform (message, context) {\n  // Put your code here.\n\nconst additionalData = message.payload.businessEvent.content.additionalData || {};\n\nmessage.header={\n  BusinessEventID: message.payload.businessEvent.id\n}\n\n  message.payload = {\n        \n        FullTimeIndicator: message.payload.businessEvent.content.changeData.sgbstdnFullPartInd || null,\n        FirstName: additionalData.spridenFirstName || null,\n        LastName: additionalData.spridenLastName || null,\n        AstdCodeEndOfTerm: additionalData.shrttrmAstdCodeEndOfTerm || null,\n        AstdCodeEndOfTermDesc: message?.payload?.newAcdType?.[0]?.desc ?? null,\n        AstdCodeDL: additionalData.shrttrmAstdCodeDl || null,\n        AstdCodeDLDesc: message?.payload?.newDlType?.[0]?.desc ?? null,\n        SportCode: additionalData.sgrsprtActcCode || null,\n        SportCodeDesc: message?.payload?.newSportType?.[0]?.desc ?? null,\n        VetCode: additionalData.spbpersVeraInd || null,\n        StudentClassificationCode: message.payload.studentClassificationTypes.code || null,\n        StudentClassificationDesc: message.payload.studentClassificationTypes.title || null\n    \n  };\nreturn message;\n}\n"
+        "code": "function transform (message, context) {\n  // Put your code here.\n\nconst additionalData = message.payload.businessEvent.content.additionalData || {};\n\nmessage.header={\n  BusinessEventID: message.payload.businessEvent.id,\n  \n}\n\n  message.payload = {\n        \n        FullTimeIndicator: message.payload.businessEvent.content.changeData.sgbstdnFullPartInd || null,\n        FirstName: additionalData.spridenFirstName || null,\n        LastName: additionalData.spridenLastName || null,\n        AstdCodeEndOfTerm: additionalData.shrttrmAstdCodeEndOfTerm || null,\n        AstdCodeEndOfTermDesc: message?.payload?.newAcdType?.[0]?.desc ?? null,\n        AstdCodeDL: additionalData.shrttrmAstdCodeDl || null,\n        AstdCodeDLDesc: message?.payload?.newDlType?.[0]?.desc ?? null,\n        SportCode: additionalData.sgrsprtActcCode || null,\n        SportCodeDesc: message?.payload?.newSportType?.[0]?.desc ?? null,\n        VetCode: additionalData.spbpersVeraInd || null,\n        StudentClassificationCode: message.payload.studentClassificationTypes.code || null,\n        StudentClassificationDesc: message.payload.studentClassificationTypes.title || null\n    \n  };\nreturn message;\n}\n"
       }
     },
     "Reducer": {
@@ -113,7 +113,7 @@
         "pushUndefined": true,
         "stopOnError": false,
         "draft": false,
-        "code": "function transform (message, context) {\n  // Put your code here.\n  message.payload= {\n    rulesetData:[...message.payload],\n    isArray:[...message.payload].length>1\n  }\n  \n  return message;\n}\n"
+        "code": "function transform (message, context) {\n  // Put your code here.\n  message.header.isArray=message.payload.length>1;\n  \n  message.payload= {\n    //rulesetData:[...message.payload],\n    rulesetData:message.payload,\n   // isArray:message.payload.length>1\n  }\n  \n  return message;\n}\n"
       }
     },
     "Run Ruleset": {
@@ -569,14 +569,15 @@
             "mapValue": "$.StudentClassificationCode"
           }
         ],
+        "target": "rulesetData",
         "ignoreErrors": false
       }
     },
     "For Each Student Evaluation": {
       "class": "forEach",
-      "if": "message.payload.isArray",
+      "if": "message.header.isArray",
       "config": {
-        "source": "payload.evaluations"
+        "source": "payload.rulesetData.evaluations"
       }
     },
     "JavaScript Transform Save input/output values": {
@@ -585,7 +586,7 @@
         "pushUndefined": true,
         "stopOnError": false,
         "draft": false,
-        "code": "function transform (message, context) {\n  // Put your code here.\n\nconst {inputs, outputs} = message.payload;\n\n\n  message.payload = {\n        \n        LastName: inputs[0].value || null,\n        FirstName: inputs[1].value || null,\n        VetCode: inputs[2].value || null,\n        AstdCodeDL: inputs[3].value || null,\n        SportCode: inputs[4].value || null,\n        SportDesc: inputs[5].value || null,\n        StudentClassificationDesc: inputs[6].value || null,\n        FullTimeIndicator: inputs[7].value || null,\n        AstdCodeDLDesc: inputs[8].value || null,\n        AstdCodeEndOfTermDesc: inputs[9].value || null,\n        AstdCodeEndOfTerm: inputs[10].value || null,\n        StudentClassificationCode: inputs[11].value || null,\n        StudentPriorityGroup: outputs[0]?.Value || \"No match\"\n  };\nreturn message;\n}\n"
+        "code": "function transform (message, context) {\n  // Put your code here.\nconst data=message.header.isArray?message.payload:message.payload.rulesetData;\nconst {inputs, outputs} = data;\n\n\n  message.payload = {\n        \n        LastName: inputs[0].value || null,\n        FirstName: inputs[1].value || null,\n        VetCode: inputs[2].value || null,\n        AstdCodeDL: inputs[3].value || null,\n        SportCode: inputs[4].value || null,\n        SportDesc: inputs[5].value || null,\n        StudentClassificationDesc: inputs[6].value || null,\n        FullTimeIndicator: inputs[7].value || null,\n        AstdCodeDLDesc: inputs[8].value || null,\n        AstdCodeEndOfTermDesc: inputs[9].value || null,\n        AstdCodeEndOfTerm: inputs[10].value || null,\n        StudentClassificationCode: inputs[11].value || null,\n        StudentPriorityGroup: outputs[0]?.Value || \"No match\"\n  };\nreturn message;\n}\n"
       }
     },
     "Delimited Formatter": {
