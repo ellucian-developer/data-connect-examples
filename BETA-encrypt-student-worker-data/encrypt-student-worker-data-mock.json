@@ -1,0 +1,170 @@
+{
+  "name": "Encrypt Student Worker Data Pipeline Mock",
+  "description": "This pipeline demonstrates the encryption and SFTP upload workflow using mock student worker data. It is designed for testing and development purposes without requiring a database connection.",
+  "parameters": [
+    {
+      "name": "publicKeyEncrypt",
+      "label": "PGP Public Key",
+      "description": "The PGP public key used to encrypt the student worker data file.",
+      "type": "string",
+      "required": true,
+      "sensitive": true,
+      "multiline": true,
+      "persistent": true
+    },
+    {
+      "name": "privateKeyEncrypt",
+      "label": "PGP Private Key for Signing",
+      "description": "The PGP private key used to sign the encrypted file for authenticity verification.",
+      "type": "string",
+      "required": true,
+      "sensitive": true,
+      "multiline": true,
+      "persistent": true
+    },
+    {
+      "name": "passphraseEncrypt",
+      "type": "string",
+      "label": "PGP Passphrase",
+      "required": true,
+      "sensitive": true,
+      "persistent": true,
+      "description": "The passphrase associated with the PGP private key used for signing."
+    },
+    {
+      "name": "privateKeySFTP",
+      "label": "SFTP Private Key",
+      "description": "The private key used for authenticating with the SFTP server.",
+      "type": "string",
+      "required": true,
+      "sensitive": true,
+      "multiline": true,
+      "persistent": true
+    },
+    {
+      "name": "sftpUsername",
+      "label": "SFTP Username",
+      "description": "The username for authenticating with the SFTP server.",
+      "type": "string",
+      "required": true
+    },
+    {
+      "name": "sftpHost",
+      "label": "SFTP Host",
+      "description": "The hostname or IP address of the SFTP server.",
+      "type": "string",
+      "required": true
+    },
+    {
+      "name": "sftpFilePath",
+      "label": "SFTP Destination File Path",
+      "description": "The full file path on the SFTP server where the encrypted file will be uploaded.",
+      "type": "string",
+      "required": true
+    }
+  ],
+  "pipeline": [
+    "JavaScript Transform - Generate Mock Student Worker Data",
+    "For Each - Iterate Student Workers",
+    "Delimited Formatter - Format Data as CSV",
+    "S3 Sink - Write CSV to Temporary Storage",
+    "S3 Accessor - Read CSV File",
+    "Encrypt Data - Encrypt Data with PGP",
+    "SFTP Put - Upload Encrypted File to SFTP"
+  ],
+  "segments": {
+    "JavaScript Transform - Generate Mock Student Worker Data": {
+      "class": "JavaScriptTransform",
+      "description": "Generates mock student worker data for testing the encryption and SFTP upload workflow without requiring a database connection.",
+      "config": {
+        "pushUndefined": true,
+        "stopOnError": false,
+        "draft": false,
+        "code": "function transform(message, context) {\n  message.payload.studentWorkers = [\n    {\n      \"spriden_id\": \"STU001\",\n      \"spriden_first_name\": \"John\",\n      \"spriden_last_name\": \"Smith\",\n      \"nbrjobs_sal_grade\": \"A1\",\n      \"nbrjobs_ann_salary\": 15000,\n      \"nbrjobs_posn\": \"SW0001\",\n      \"nbbposn_title\": \"Library Assistant\",\n      \"nbrjobs_orgn_code_ts\": \"LIB01\",\n      \"pebempl_orgn_code_home\": \"ACAD\",\n      \"pebempl_orgn_code_dist\": \"MAIN\",\n      \"nbbposn_grade\": \"01\",\n      \"nbbposn_exempt_ind\": \"N\",\n      \"nbbposn_posn_reports\": \"MGR001\",\n      \"nbrjobs_suff\": \"00\",\n      \"nbrjobs_ecls_code\": \"ST\"\n    },\n    {\n      \"spriden_id\": \"STU002\",\n      \"spriden_first_name\": \"Emily\",\n      \"spriden_last_name\": \"Johnson\",\n      \"nbrjobs_sal_grade\": \"A2\",\n      \"nbrjobs_ann_salary\": 16500,\n      \"nbrjobs_posn\": \"SW0002\",\n      \"nbbposn_title\": \"Research Assistant\",\n      \"nbrjobs_orgn_code_ts\": \"RES01\",\n      \"pebempl_orgn_code_home\": \"GRAD\",\n      \"pebempl_orgn_code_dist\": \"MAIN\",\n      \"nbbposn_grade\": \"02\",\n      \"nbbposn_exempt_ind\": \"N\",\n      \"nbbposn_posn_reports\": \"MGR002\",\n      \"nbrjobs_suff\": \"00\",\n      \"nbrjobs_ecls_code\": \"US\"\n    },\n    {\n      \"spriden_id\": \"STU003\",\n      \"spriden_first_name\": \"Michael\",\n      \"spriden_last_name\": \"Williams\",\n      \"nbrjobs_sal_grade\": \"A1\",\n      \"nbrjobs_ann_salary\": 14500,\n      \"nbrjobs_posn\": \"SW0003\",\n      \"nbbposn_title\": \"IT Help Desk\",\n      \"nbrjobs_orgn_code_ts\": \"ITS01\",\n      \"pebempl_orgn_code_home\": \"TECH\",\n      \"pebempl_orgn_code_dist\": \"MAIN\",\n      \"nbbposn_grade\": \"01\",\n      \"nbbposn_exempt_ind\": \"N\",\n      \"nbbposn_posn_reports\": \"MGR003\",\n      \"nbrjobs_suff\": \"00\",\n      \"nbrjobs_ecls_code\": \"ST\"\n    },\n    {\n      \"spriden_id\": \"STU004\",\n      \"spriden_first_name\": \"Sarah\",\n      \"spriden_last_name\": \"Davis\",\n      \"nbrjobs_sal_grade\": \"B1\",\n      \"nbrjobs_ann_salary\": 18000,\n      \"nbrjobs_posn\": \"SW0004\",\n      \"nbbposn_title\": \"Lab Technician\",\n      \"nbrjobs_orgn_code_ts\": \"SCI01\",\n      \"pebempl_orgn_code_home\": \"STEM\",\n      \"pebempl_orgn_code_dist\": \"NORTH\",\n      \"nbbposn_grade\": \"03\",\n      \"nbbposn_exempt_ind\": \"N\",\n      \"nbbposn_posn_reports\": \"MGR004\",\n      \"nbrjobs_suff\": \"00\",\n      \"nbrjobs_ecls_code\": \"GB\"\n    },\n    {\n      \"spriden_id\": \"STU005\",\n      \"spriden_first_name\": \"David\",\n      \"spriden_last_name\": \"Brown\",\n      \"nbrjobs_sal_grade\": \"A2\",\n      \"nbrjobs_ann_salary\": 15500,\n      \"nbrjobs_posn\": \"SW0005\",\n      \"nbbposn_title\": \"Administrative Assistant\",\n      \"nbrjobs_orgn_code_ts\": \"ADM01\",\n      \"pebempl_orgn_code_home\": \"ADMIN\",\n      \"pebempl_orgn_code_dist\": \"MAIN\",\n      \"nbbposn_grade\": \"02\",\n      \"nbbposn_exempt_ind\": \"N\",\n      \"nbbposn_posn_reports\": \"MGR005\",\n      \"nbrjobs_suff\": \"00\",\n      \"nbrjobs_ecls_code\": \"NR\"\n    },\n    {\n      \"spriden_id\": \"STU006\",\n      \"spriden_first_name\": \"Jennifer\",\n      \"spriden_last_name\": \"Martinez\",\n      \"nbrjobs_sal_grade\": \"A1\",\n      \"nbrjobs_ann_salary\": 14000,\n      \"nbrjobs_posn\": \"SW0006\",\n      \"nbbposn_title\": \"Tutoring Center Assistant\",\n      \"nbrjobs_orgn_code_ts\": \"TUT01\",\n      \"pebempl_orgn_code_home\": \"ACAD\",\n      \"pebempl_orgn_code_dist\": \"MAIN\",\n      \"nbbposn_grade\": \"01\",\n      \"nbbposn_exempt_ind\": \"N\",\n      \"nbbposn_posn_reports\": \"MGR006\",\n      \"nbrjobs_suff\": \"00\",\n      \"nbrjobs_ecls_code\": \"ST\"\n    },\n    {\n      \"spriden_id\": \"STU007\",\n      \"spriden_first_name\": \"Christopher\",\n      \"spriden_last_name\": \"Garcia\",\n      \"nbrjobs_sal_grade\": \"B2\",\n      \"nbrjobs_ann_salary\": 19000,\n      \"nbrjobs_posn\": \"SW0007\",\n      \"nbbposn_title\": \"Graduate Teaching Assistant\",\n      \"nbrjobs_orgn_code_ts\": \"ENG01\",\n      \"pebempl_orgn_code_home\": \"GRAD\",\n      \"pebempl_orgn_code_dist\": \"SOUTH\",\n      \"nbbposn_grade\": \"04\",\n      \"nbbposn_exempt_ind\": \"Y\",\n      \"nbbposn_posn_reports\": \"MGR007\",\n      \"nbrjobs_suff\": \"00\",\n      \"nbrjobs_ecls_code\": \"GB\"\n    },\n    {\n      \"spriden_id\": \"STU008\",\n      \"spriden_first_name\": \"Amanda\",\n      \"spriden_last_name\": \"Wilson\",\n      \"nbrjobs_sal_grade\": \"A1\",\n      \"nbrjobs_ann_salary\": 13500,\n      \"nbrjobs_posn\": \"SW0008\",\n      \"nbbposn_title\": \"Recreation Center Staff\",\n      \"nbrjobs_orgn_code_ts\": \"REC01\",\n      \"pebempl_orgn_code_home\": \"ATHL\",\n      \"pebempl_orgn_code_dist\": \"MAIN\",\n      \"nbbposn_grade\": \"01\",\n      \"nbbposn_exempt_ind\": \"N\",\n      \"nbbposn_posn_reports\": \"MGR008\",\n      \"nbrjobs_suff\": \"00\",\n      \"nbrjobs_ecls_code\": \"ST\"\n    },\n    {\n      \"spriden_id\": \"STU009\",\n      \"spriden_first_name\": \"Daniel\",\n      \"spriden_last_name\": \"Anderson\",\n      \"nbrjobs_sal_grade\": \"A2\",\n      \"nbrjobs_ann_salary\": 17000,\n      \"nbrjobs_posn\": \"SW0009\",\n      \"nbbposn_title\": \"Media Services Assistant\",\n      \"nbrjobs_orgn_code_ts\": \"MED01\",\n      \"pebempl_orgn_code_home\": \"COMM\",\n      \"pebempl_orgn_code_dist\": \"MAIN\",\n      \"nbbposn_grade\": \"02\",\n      \"nbbposn_exempt_ind\": \"N\",\n      \"nbbposn_posn_reports\": \"MGR009\",\n      \"nbrjobs_suff\": \"00\",\n      \"nbrjobs_ecls_code\": \"US\"\n    },\n    {\n      \"spriden_id\": \"STU010\",\n      \"spriden_first_name\": \"Jessica\",\n      \"spriden_last_name\": \"Taylor\",\n      \"nbrjobs_sal_grade\": \"A1\",\n      \"nbrjobs_ann_salary\": 14500,\n      \"nbrjobs_posn\": \"SW0010\",\n      \"nbbposn_title\": \"Student Success Center Peer Mentor\",\n      \"nbrjobs_orgn_code_ts\": \"SSC01\",\n      \"pebempl_orgn_code_home\": \"STAF\",\n      \"pebempl_orgn_code_dist\": \"MAIN\",\n      \"nbbposn_grade\": \"01\",\n      \"nbbposn_exempt_ind\": \"N\",\n      \"nbbposn_posn_reports\": \"MGR010\",\n      \"nbrjobs_suff\": \"00\",\n      \"nbrjobs_ecls_code\": \"ST\"\n    }\n  ];\n  \n  return message;\n}\n"
+      }
+    },
+    "For Each - Iterate Student Workers": {
+      "class": "forEach",
+      "description": "Iterates over each student worker record in the mock data collection.",
+      "config": {
+        "source": "payload.studentWorkers"
+      }
+    },
+    "Delimited Formatter - Format Data as CSV": {
+      "class": "delimitedFormatter",
+      "description": "Formats the mock student worker data into a CSV structure with selected columns including name, salary grade, annual salary, position code, and title.",
+      "config": {
+        "normalizeColumns": false,
+        "detail": {
+          "columns": [
+            {
+              "path": "spriden_first_name"
+            },
+            {
+              "path": "spriden_last_name"
+            },
+            {
+              "path": "nbrjobs_sal_grade"
+            },
+            {
+              "path": "nbrjobs_ann_salary"
+            },
+            {
+              "path": "nbrjobs_posn"
+            },
+            {
+              "path": "nbbposn_title"
+            }
+          ],
+          "columnHeaders": true
+        }
+      }
+    },
+    "S3 Sink - Write CSV to Temporary Storage": {
+      "class": "s3sink",
+      "description": "Writes the formatted CSV data to temporary S3 storage for subsequent encryption processing.",
+      "config": {
+        "key": "studentWorkers.csv",
+        "addNewlineAfterEachMessage": true,
+        "includeTotalCount": false,
+        "generatePresignedUrl": true,
+        "writeImmediately": false,
+        "utfEncoding": "utf-8"
+      }
+    },
+    "S3 Accessor - Read CSV File": {
+      "class": "S3Accessor",
+      "description": "Reads the CSV file from S3 temporary storage to prepare it for encryption.",
+      "config": {
+        "key": "{{context.__pipelineName}}/{{context.__runId}}/studentWorkers.csv",
+        "binary": false,
+        "allowConcurrent": false
+      }
+    },
+    "Encrypt Data - Encrypt Data with PGP": {
+      "class": "encryptData",
+      "description": "Encrypts the CSV file content using PGP encryption with the provided public key and signs it with the private key for authenticity.",
+      "config": {
+        "publicKey": "publicKeyEncrypt",
+        "signature": true,
+        "signingKey": {
+          "passphrase": "passphraseEncrypt",
+          "privateKey": "privateKeyEncrypt"
+        },
+        "binary": true,
+        "ignoreErrors": false
+      }
+    },
+    "SFTP Put - Upload Encrypted File to SFTP": {
+      "class": "sftpPut",
+      "description": "Securely uploads the encrypted GPG file to the configured SFTP server using private key authentication.",
+      "config": {
+        "privateKey": "privateKeySFTP",
+        "username": "{{context.sftpUsername}}",
+        "host": "{{context.sftpHost}}",
+        "fileName": "{{context.sftpFilePath}}",
+        "push": true
+      }
+    }
+  }
+}
