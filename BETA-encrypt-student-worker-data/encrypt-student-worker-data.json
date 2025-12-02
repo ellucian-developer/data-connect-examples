@@ -1,0 +1,161 @@
+{
+  "name": "Encrypt Student Worker Data Pipeline",
+  "description": "This pipeline extracts student worker data from Banner, formats it as a CSV file, encrypts it using PGP encryption, and securely transfers the encrypted file to an SFTP server.",
+  "parameters": [
+    {
+      "name": "publicKeyEncrypt",
+      "label": "PGP Public Key",
+      "description": "The PGP public key used to encrypt the student worker data file.",
+      "type": "string",
+      "required": true,
+      "sensitive": true,
+      "multiline": true,
+      "persistent": true
+    },
+    {
+      "name": "privateKeyEncrypt",
+      "label": "PGP Private Key for Signing",
+      "description": "The PGP private key used to sign the encrypted file for authenticity verification.",
+      "type": "string",
+      "required": true,
+      "sensitive": true,
+      "multiline": true,
+      "persistent": true
+    },
+    {
+      "name": "passphraseEncrypt",
+      "type": "string",
+      "label": "PGP Passphrase",
+      "required": true,
+      "sensitive": true,
+      "persistent": true,
+      "description": "The passphrase associated with the PGP private key used for signing."
+    },
+    {
+      "name": "privateKeySFTP",
+      "label": "SFTP Private Key",
+      "description": "The private key used for authenticating with the SFTP server.",
+      "type": "string",
+      "required": true,
+      "sensitive": true,
+      "multiline": true,
+      "persistent": true
+    },
+    {
+      "name": "sftpUsername",
+      "label": "SFTP Username",
+      "description": "The username for authenticating with the SFTP server.",
+      "type": "string",
+      "required": true
+    },
+    {
+      "name": "sftpHost",
+      "label": "SFTP Host",
+      "description": "The hostname or IP address of the SFTP server.",
+      "type": "string",
+      "required": true
+    },
+    {
+      "name": "sftpFilePath",
+      "label": "SFTP Destination File Path",
+      "description": "The full file path on the SFTP server where the encrypted file will be uploaded.",
+      "type": "string",
+      "required": true
+    }
+  ],
+  "pipeline": [
+    "Extract Data - Extract Student Worker Data",
+    "Delimited Formatter - Format Data as CSV",
+    "S3 Sink - Write CSV to Temporary Storage",
+    "S3 Accessor - Read CSV File",
+    "Encrypt Data - Encrypt Data with PGP",
+    "SFTP Put - Upload Encrypted File to SFTP"
+  ],
+  "segments": {
+    "Extract Data - Extract Student Worker Data": {
+      "class": "extractData",
+      "description": "Extracts active student worker records from Banner, including employee details, position information, and salary data.",
+      "config": {
+        "selectQuery": "SELECT spriden_id,\r\n NBRJOBS_ORGN_CODE_TS,\r\n PEBEMPL_ORGN_CODE_HOME,\r\n PEBEMPL_ORGN_CODE_DIST,\r\n nbrjobs_posn, NBBPOSN_GRADE,\r\n NBBPOSN_TITLE,\r\n NBBPOSN_EXEMPT_IND,\r\n NBBPOSN_POSN_REPORTS,\r\n NBRJOBS_SAL_GRADE,\r\n nbrjobs_ann_salary,\r\n spriden_last_name,\r\n spriden_first_name,\r\n nbrjobs_suff,\r\n nbrjobs_ecls_code\r\nFROM nbrjobs a,\r\nNBBPOSN, spbpers, pebempl,\r\n spriden\r\nWHERE nbrjobs_pidm = spriden_pidm\r\nand spriden_pidm = pebempl_pidm\r\nand spriden_pidm = spbpers_pidm\r\nand nbrjobs_posn = nbbposn_posn\r\n AND spriden_change_ind IS NULL\r\n AND a.nbrjobs_status <> 'T'\r\nAND a.nbrjobs_ecls_code in ('US','ST','GB','NR')\r\n AND nbrjobs_effective_date =\r\n (SELECT MAX(nbrjobs_effective_date)\r\n  FROM nbrjobs b\r\n  WHERE nbrjobs_effective_date <= now()\r\n  AND b.nbrjobs_pidm = a.nbrjobs_pidm\r\n  AND b.nbrjobs_posn = a.nbrjobs_posn\r\n  AND b.nbrjobs_suff = a.nbrjobs_suff)\r\nORDER BY spriden_last_name,\r\n spriden_first_name,\r\n a.nbrjobs_posn;",
+        "bulkLoadEnabled": true,
+        "ignoreErrors": false
+      }
+    },
+    "Delimited Formatter - Format Data as CSV": {
+      "class": "delimitedFormatter",
+      "description": "Formats the extracted student worker data into a CSV structure with selected columns including name, salary grade, annual salary, position code, and title.",
+      "config": {
+        "normalizeColumns": false,
+        "detail": {
+          "columns": [
+            {
+              "path": "spriden_first_name"
+            },
+            {
+              "path": "spriden_last_name"
+            },
+            {
+              "path": "nbrjobs_sal_grade"
+            },
+            {
+              "path": "nbrjobs_ann_salary"
+            },
+            {
+              "path": "nbrjobs_posn"
+            },
+            {
+              "path": "nbbposn_title"
+            }
+          ],
+          "columnHeaders": true
+        }
+      }
+    },
+    "S3 Sink - Write CSV to Temporary Storage": {
+      "class": "s3sink",
+      "description": "Writes the formatted CSV data to temporary S3 storage for subsequent encryption processing.",
+      "config": {
+        "key": "studentWorkers.csv",
+        "addNewlineAfterEachMessage": true,
+        "includeTotalCount": false,
+        "generatePresignedUrl": true,
+        "writeImmediately": false,
+        "utfEncoding": "utf-8"
+      }
+    },
+    "S3 Accessor - Read CSV File": {
+      "class": "S3Accessor",
+      "description": "Reads the CSV file from S3 temporary storage to prepare it for encryption.",
+      "config": {
+        "key": "{{context.__pipelineName}}/{{context.__runId}}/studentWorkers.csv",
+        "binary": false,
+        "allowConcurrent": false
+      }
+    },
+    "Encrypt Data - Encrypt Data with PGP": {
+      "class": "encryptData",
+      "description": "Encrypts the CSV file content using PGP encryption with the provided public key and signs it with the private key for authenticity.",
+      "config": {
+        "publicKey": "publicKeyEncrypt",
+        "signature": true,
+        "signingKey": {
+          "passphrase": "passphraseEncrypt",
+          "privateKey": "privateKeyEncrypt"
+        },
+        "binary": true,
+        "ignoreErrors": false
+      }
+    },
+    "SFTP Put - Upload Encrypted File to SFTP": {
+      "class": "sftpPut",
+      "description": "Securely uploads the encrypted GPG file to the configured SFTP server using private key authentication.",
+      "config": {
+        "privateKey": "privateKeySFTP",
+        "username": "{{context.sftpUsername}}",
+        "host": "{{context.sftpHost}}",
+        "fileName": "{{context.sftpFilePath}}",
+        "push": true
+      }
+    }
+  }
+}
