@@ -45,8 +45,8 @@ This is the production pipeline that performs the following steps:
 
 1. **Extract Data** – Queries Banner for active student worker records including employee details, position information, and salary data.
 2. **Delimited Formatter** – Formats the extracted data into a CSV structure with selected columns.
-3. **S3 Sink** – Stores the formatted CSV in S3 temporary storage.
-4. **S3 Accessor** – Reads the CSV file from temporary storage for encryption.
+3. **File Writer** – Stores the formatted CSV in S3 temporary storage.
+4. **File Reader** – Reads the CSV file from temporary storage for encryption.
 5. **Encrypt Data** – **Encrypts the file using PGP encryption and signs it with a digital signature.**
 6. **SFTP Put** – Securely uploads the encrypted GPG file to the configured SFTP server.
 
