@@ -1,0 +1,114 @@
+{
+  "name": "Decrypt Student Worker Data Pipeline",
+  "description": "This pipeline retrieves an encrypted student worker file from an SFTP server, decrypts it using PGP decryption, and securely uploads the decrypted file back to the SFTP server.",
+  "parameters": [
+    {
+      "name": "privateKeyDecrypt",
+      "label": "PGP Private Key for Decryption",
+      "description": "The PGP private key used to decrypt the student worker data file.",
+      "type": "string",
+      "required": true,
+      "sensitive": true,
+      "multiline": true,
+      "persistent": true
+    },
+    {
+      "name": "passphraseDecrypt",
+      "label": "PGP Passphrase",
+      "description": "The passphrase associated with the PGP private key used for decryption.",
+      "type": "string",
+      "required": true,
+      "sensitive": true,
+      "persistent": true
+    },
+    {
+      "name": "publicKeyVerify",
+      "label": "PGP Public Key for Verification",
+      "description": "The PGP public key used to verify the digital signature for authenticity confirmation.",
+      "type": "string",
+      "required": true,
+      "sensitive": true,
+      "multiline": true,
+      "persistent": true
+    },
+    {
+      "name": "privateKeySFTP",
+      "label": "SFTP Private Key",
+      "description": "The private key used for authenticating with the SFTP server.",
+      "type": "string",
+      "required": true,
+      "sensitive": true,
+      "multiline": true,
+      "persistent": true
+    },
+    {
+      "name": "sftpUsername",
+      "label": "SFTP Username",
+      "description": "The username for authenticating with the SFTP server.",
+      "type": "string",
+      "required": true
+    },
+    {
+      "name": "sftpHost",
+      "label": "SFTP Host",
+      "description": "The hostname or IP address of the SFTP server.",
+      "type": "string",
+      "required": true
+    },
+    {
+      "name": "sftpSourceFilePath",
+      "label": "SFTP Source File Path",
+      "description": "The full file path on the SFTP server where the encrypted file is located.",
+      "type": "string",
+      "required": true
+    },
+    {
+      "name": "sftpDestinationFilePath",
+      "label": "SFTP Destination File Path",
+      "description": "The full file path on the SFTP server where the decrypted file will be uploaded.",
+      "type": "string",
+      "required": true
+    }
+  ],
+  "pipeline": [
+    "SFTP Get - Retrieve Encrypted Student Worker File",
+    "Decrypt Data - Decrypt Data with PGP",
+    "SFTP Put - Upload Decrypted File to SFTP"
+  ],
+  "segments": {
+    "SFTP Get - Retrieve Encrypted Student Worker File": {
+      "class": "sftpGet",
+      "description": "Retrieves the encrypted student worker file from the SFTP server using private key authentication.",
+      "config": {
+        "privateKey": "privateKeySFTP",
+        "username": "{{{context.sftpUsername}}}",
+        "host": "{{{context.sftpHost}}}",
+        "fileName": "{{{context.sftpSourceFilePath}}}",
+        "binary": true
+      }
+    },
+    "Decrypt Data - Decrypt Data with PGP": {
+      "class": "decryptData",
+      "description": "Decrypts the file content using PGP decryption with the provided private key and verifies the digital signature using the sender's public key.",
+      "config": {
+        "privateKey": "privateKeyDecrypt",
+        "passphrase": "passphraseDecrypt",
+        "verification": true,
+        "publicKey": "publicKeyVerify",
+        "binary": false,
+        "ignoreErrors": false
+      }
+    },
+    "SFTP Put - Upload Decrypted File to SFTP": {
+      "class": "sftpPut",
+      "description": "Securely uploads the decrypted CSV file to the configured SFTP server using private key authentication.",
+      "config": {
+        "privateKey": "privateKeySFTP",
+        "username": "{{{context.sftpUsername}}}",
+        "host": "{{{context.sftpHost}}}",
+        "fileName": "{{{context.sftpDestinationFilePath}}}",
+        "push": true
+      }
+    }
+  }
+}

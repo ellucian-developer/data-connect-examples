@@ -2,24 +2,11 @@
 
 This repository provides sample pipelines demonstrating how to use the **Encrypt Data** fitting in Data Connect to apply PGP encryption to sensitive data before transferring it to external systems.
 
-**The Encrypt Data fitting enables secure, standards-compliant encryption of data within your pipelines.** It supports PGP (Pretty Good Privacy) encryption with optional digital signatures, making it ideal for protecting sensitive information during data transfers to external partners, government agencies, or third-party systems.
+**The Encrypt Data fitting enables secure, standards-compliant encryption of data within your pipelines.** It supports PGP (Pretty Good Privacy) encryption with optional digital signatures, making it ideal for protecting sensitive information during data transfers to state and federal reporting agencies, financial aid servicers, third-party systems, and other internal/external partners.
 
 In this example, the pipeline extracts student worker records from Banner, formats the data as CSV, encrypts it using the Encrypt Data fitting with PGP, and uploads the encrypted file to an SFTP server.
 
 ---
-
-## Encrypt Data Fitting Overview
-
-The `encryptData` fitting provides PGP encryption capabilities with the following features:
-
-### Key Features
-
-| Feature | Description |
-|---------|-------------|
-| **PGP Encryption** | Encrypts data using a PGP public key, ensuring only the intended recipient can decrypt it |
-| **Digital Signatures** | Optionally signs the encrypted data with a private key to verify authenticity and integrity |
-| **Binary Output** | Produces binary encrypted output suitable for file transfer |
-| **Error Handling** | Configurable error handling with the `ignoreErrors` option |
 
 ## Pipelines Included
 
@@ -92,29 +79,19 @@ This is a test version of the pipeline that:
 
 ---
 
-## Security Considerations
-
-The Encrypt Data fitting provides multiple layers of security:
-
-* **PGP Encryption**: Uses asymmetric encryption where data is encrypted with a public key and can only be decrypted with the corresponding private key held by the recipient.
-* **Digital Signatures**: When `signature: true`, the fitting signs the data with your private key, allowing recipients to verify the data's authenticity and that it hasn't been tampered with.
-* **Sensitive Parameters**: All encryption keys and credentials should be marked as `sensitive: true` in parameters to ensure they are stored securely and not logged.
-* **Secure Transfer**: Combined with SFTP, provides end-to-end security for data in transit.
-
----
-
 ## Other Use Cases for Encrypt Data Fitting
 
-The Encrypt Data fitting is essential for scenarios requiring secure data transfer:
+The Encrypt Data fitting is essential for scenarios requiring secure data transfer in higher education:
 
+* **National Student Clearinghouse** enrollment and degree verification submissions
+* **State and federal reporting** (IPEDS, state longitudinal data systems)
+* **Financial aid data exports** to servicers and guarantors
 * **Payroll exports** to external payroll providers
-* **Financial data transfers** to auditing firms
-* **HR data synchronization** with third-party HR systems
-* **Student records exports** for verification services
-* **Vendor data exchanges** requiring encryption compliance
+* **Student records transfers** to other institutions or verification services
+* **HR and employee data synchronization** with third-party benefits providers
 
 ---
 
-## File Output
+## Related Examples
 
-The pipeline generates a PGP-encrypted `.gpg` file containing the student worker data in CSV format. The file is uploaded to the specified SFTP location with the configured filename.
+See the companion **[Decrypt Data Fitting Example](../BETA-decrypt-student-worker-data/)** for a pipeline that demonstrates how to decrypt PGP-encrypted data received from external systems.
