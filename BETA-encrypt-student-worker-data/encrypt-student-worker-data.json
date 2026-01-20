@@ -151,9 +151,9 @@
       "description": "Securely uploads the encrypted GPG file to the configured SFTP server using private key authentication.",
       "config": {
         "privateKey": "privateKeySFTP",
-        "username": "{{context.sftpUsername}}",
-        "host": "{{context.sftpHost}}",
-        "fileName": "{{context.sftpFilePath}}",
+        "username": "{{{context.sftpUsername}}}",
+        "host": "{{{context.sftpHost}}}",
+        "fileName": "{{{context.sftpFilePath}}}",
         "push": true
       }
     }
