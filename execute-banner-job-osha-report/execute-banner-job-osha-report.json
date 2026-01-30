@@ -1,0 +1,128 @@
+{
+  "name": "Execute Banner Job OSHA Report Pipeline",
+  "description": "This pipeline executes the PEROSHA Banner job to generate OSHA Form 300 work-related injury reports for a specific employer code and date range, then outputs the report to a downloadable file.",
+  "parameters": [
+    {
+      "name": "ethosApiKey",
+      "label": "Ethos API Key",
+      "description": "The Ethos API key used to authenticate with Banner for job execution.",
+      "type": "string",
+      "required": true,
+      "sensitive": true,
+      "persistent": true
+    },
+    {
+      "name": "startDate",
+      "label": "Report Start Date",
+      "description": "The start date for the OSHA report period (format: DD-MMM-YYYY, e.g., 01-JAN-2024).",
+      "type": "string",
+      "required": true,
+      "default": "01-JAN-2024"
+    },
+    {
+      "name": "stopDate",
+      "label": "Report Stop Date",
+      "description": "The stop date for the OSHA report period (format: DD-MMM-YYYY, e.g., 31-DEC-2024).",
+      "type": "string",
+      "required": true,
+      "default": "31-DEC-2024"
+    },
+    {
+      "name": "employerCode",
+      "label": "Employer Code",
+      "description": "The employer code to filter employee records (e.g., BU for main university).",
+      "type": "string",
+      "required": true,
+      "default": "BU"
+    }
+  ],
+  "pipeline": [
+    "Execute Banner Job - Run PEROSHA Report",
+    "JavaScript Transform - Format Report Output",
+    "File Writer - Save Report to File"
+  ],
+  "segments": {
+    "Execute Banner Job - Run PEROSHA Report": {
+      "class": "ExecuteBannerJob",
+      "description": "Executes the PEROSHA Banner job to generate OSHA Form 300 work-related injury and illness data for the specified date range and employer code.",
+      "config": {
+        "apiKey": "ethosApiKey",
+        "name": "PEROSHA",
+        "outputFileName": "{{jobName}}_{{jobNumber}}.lis",
+        "ignoreErrors": false,
+        "parameters": [
+          {
+            "type": "date",
+            "value": "{{{context.startDate}}}",
+            "number": "01",
+            "required": true,
+            "parameter": "Start Date"
+          },
+          {
+            "type": "date",
+            "value": "{{{context.stopDate}}}",
+            "number": "02",
+            "required": true,
+            "parameter": "Stop Date"
+          },
+          {
+            "type": "character",
+            "value": "",
+            "number": "03",
+            "required": false,
+            "parameter": "Industrial Description"
+          },
+          {
+            "type": "number",
+            "value": "",
+            "number": "04",
+            "required": false,
+            "parameter": "SIC Code"
+          },
+          {
+            "type": "character",
+            "value": "{{{context.employerCode}}}",
+            "number": "05",
+            "required": true,
+            "parameter": "Employer Code"
+          },
+          {
+            "type": "character",
+            "value": "",
+            "number": "06",
+            "required": false,
+            "parameter": "Exclude Employee Class"
+          },
+          {
+            "type": "character",
+            "value": "N",
+            "number": "07",
+            "required": true,
+            "parameter": "Create 300A electronic file"
+          }
+        ]
+      }
+    },
+    "JavaScript Transform - Format Report Output": {
+      "class": "JavaScriptTransform",
+      "description": "Transforms the PEROSHA job output by joining the report array into a single formatted text string for file output.",
+      "config": {
+        "pushUndefined": true,
+        "stopOnError": false,
+        "code": "function transform (message, context) {\n  // Join the report lines into a single text output\n  if (message.payload.report?.length > 0) {\n    message.payload = message.payload.report.join('\\n');\n  }\n  return message;\n}\n"
+      }
+    },
+    "File Writer - Save Report to File": {
+      "class": "s3sink",
+      "description": "Writes the formatted OSHA report to a downloadable text file with a pre-signed URL for easy access.",
+      "config": {
+        "key": "perosha_osha_report.txt",
+        "addNewlineAfterEachMessage": false,
+        "includeTotalCount": false,
+        "generatePresignedUrl": true,
+        "writeImmediately": false,
+        "utfEncoding": "utf-8"
+      }
+    }
+  }
+}
