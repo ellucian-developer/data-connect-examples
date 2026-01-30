@@ -93,25 +93,27 @@ The Execute Banner Job fitting passes the following parameters to the PEROSHA jo
    - Set the stop date (e.g., `31-DEC-2024`)
    - Specify the employer code (e.g., `BU`)
 3. Run the job to execute the PEROSHA report and generate the output file.
-4. Download the report from the generated pre-signed URL.
 
 ### Testing the Pipeline
 
 1. Use the **Test** button in Integration Designer to run the pipeline.
 2. Provide valid Ethos API credentials and parameters.
 3. Verify the report output contains the expected OSHA injury/illness data.
+4. Download the report from the generated pre-signed URL in the test results.
 
 ---
 
 ## Other Use Cases for Execute Banner Job Fitting
 
-The Execute Banner Job fitting is essential for automating Banner batch processes in higher education. Examples from the Accounts Receivable nightly close process include:
+The Execute Banner Job fitting can be used to automate other Banner batch processes. The following jobs have been tested and verified:
 
-* **Fee Assessment** – Run **SFRFASC** nightly to ensure proper fee assessment for current and upcoming terms
-* **Credit Calculation** – Execute **TSRRBIL** in ApplyCred mode to process contract/exemption credits to student accounts, release deposits, and create installment plans
-* **Title IV Authorization** – Run **TVPREQA** to transfer TIV authorizations from Financial Aid Self-Service to Accounts Receivable
-* **Finance Feed** – Run **TGRFEED** and **FURFEED** to feed transactions from closed cashier sessions to Finance
-* **Reconciliation Reports** – Generate **TGRRCON** (AR Reconciliation) and **TGRAGES** (Aging Reports) for daily reconciliation
+| Banner Job | Description |
+|------------|-------------|
+| **PHPDIRD** | HR Directory report with pagination support |
+| **SCRBULT** | Academic courses report for an academic year |
+| **SGRSTDN** | Student records using population selection |
+| **GURPDED** | Data element dictionary report |
+| **GJRRPTS** | General reports |
 
 Any Banner batch job that can be executed through Job Submission can be automated using the Execute Banner Job fitting.
 
