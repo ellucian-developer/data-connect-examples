@@ -1,4 +1,4 @@
-# Trigger by Event Pipelines: Consuming and processing Business Events on Data Connect (BETA)
+# Trigger by Event Pipelines: Consuming and processing Business Events on Data Connect
 
 This repository provides a sample pipeline demonstrating how to use Data Connect to automate processes triggered by business events in Banner. The example focuses on updating a student's residency code and notifying the student when this change occurs.
 
