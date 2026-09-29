@@ -1,0 +1,108 @@
+{
+  "name": "build-population-selection-glbdataj",
+  "description": "Executes GLBDATAJ Banner job to create the Population Selection containing the students to be processed",
+  "parameters": [
+    {
+      "name": "ethosApiKey",
+      "type": "string",
+      "required": true,
+      "sensitive": true,
+      "persistent": true
+    }
+  ],
+  "pipeline": [
+    "Execute GLBDATAJ Banner Job",
+    "For Each",
+    "Write Log File for Preview"
+  ],
+  "segments": {
+    "Execute GLBDATAJ Banner Job": {
+      "class": "ExecuteBannerJob",
+      "config": {
+        "name": "GLBDATAJ",
+        "outputFileName": "{{jobName}}_{{jobNumber}}.log",
+        "ignoreErrors": false,
+        "parameters": [
+          {
+            "number": "01",
+            "type": "character",
+            "value": "AD_FINAID_RECORD",
+            "parameter": "Selection Identifier 1",
+            "required": true,
+            "multiValue": false
+          },
+          {
+            "number": "02",
+            "type": "character",
+            "value": "",
+            "parameter": "Selection Identifier 2",
+            "required": false,
+            "multiValue": false
+          },
+          {
+            "number": "03",
+            "type": "character",
+            "value": "",
+            "parameter": "New Selection Identifier",
+            "required": false,
+            "multiValue": false
+          },
+          {
+            "number": "04",
+            "type": "character",
+            "value": "",
+            "parameter": "Description for new selection",
+            "required": false,
+            "multiValue": false
+          },
+          {
+            "number": "05",
+            "type": "character",
+            "value": "",
+            "parameter": "Union/Intersection/Minus",
+            "required": false,
+            "multiValue": false
+          },
+          {
+            "number": "06",
+            "type": "character",
+            "value": "FINAID",
+            "parameter": "Application Code",
+            "required": true,
+            "multiValue": false
+          },
+          {
+            "number": "07",
+            "type": "character",
+            "value": "BCMADMIN",
+            "parameter": "Creator ID of Selection ID",
+            "required": true,
+            "multiValue": false
+          },
+          {
+            "number": "08",
+            "type": "character",
+            "value": "",
+            "parameter": "Detail Execution Report",
+            "required": false,
+            "multiValue": false
+          }
+        ]
+      }
+    },
+    "For Each": {
+      "class": "forEach"
+    },
+    "Write Log File for Preview": {
+      "class": "s3sink",
+      "config": {
+        "key": "GLBDATAJ_{{message.header.bannerJobNumber}}.log",
+        "addNewlineAfterEachMessage": true,
+        "includeTotalCount": false,
+        "generatePresignedUrl": true,
+        "utfEncoding": "utf-8",
+        "writeImmediately": false
+      }
+    }
+  }
+}
