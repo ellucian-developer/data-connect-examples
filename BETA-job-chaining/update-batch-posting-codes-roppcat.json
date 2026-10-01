@@ -1,0 +1,84 @@
+{
+  "name": "update-batch-posting-codes-roppcat",
+  "description": "Evaluates the selected student population and assigns Batch Posting Codes based on configured Financial Aid rules",
+  "parameters": [
+    {
+      "name": "ethosApiKey",
+      "type": "string",
+      "required": true,
+      "sensitive": true,
+      "persistent": true
+    }
+  ],
+  "pipeline": [
+    "Execute ROPPCAT Banner Job",
+    "For Each",
+    "Write lis File For Preview"
+  ],
+  "segments": {
+    "Execute ROPPCAT Banner Job": {
+      "class": "ExecuteBannerJob",
+      "config": {
+        "name": "ROPPCAT",
+        "outputFileName": "{{jobName}}_{{jobNumber}}.lis",
+        "ignoreErrors": false,
+        "parameters": [
+          {
+            "type": "character",
+            "value": "2627",
+            "number": "01",
+            "required": true,
+            "parameter": "Aid Year Code",
+            "multiValue": false
+          },
+          {
+            "type": "character",
+            "value": "DATAL",
+            "number": "02",
+            "required": true,
+            "parameter": "Category Code",
+            "multiValue": false
+          },
+          {
+            "type": "character",
+            "value": "E",
+            "number": "03",
+            "required": true,
+            "parameter": "Equal or Like",
+            "multiValue": false
+          },
+          {
+            "type": "character",
+            "value": "U",
+            "number": "04",
+            "required": true,
+            "parameter": "Audit or Update",
+            "multiValue": false
+          },
+          {
+            "type": "character",
+            "value": "FINAID",
+            "number": "05",
+            "required": true,
+            "parameter": "Application Code",
+            "multiValue": false
+          }
+        ]
+      }
+    },
+    "For Each": {
+      "class": "forEach"
+    },
+    "Write lis File For Preview": {
+      "class": "s3sink",
+      "config": {
+        "key": "ROPPCAT_{{message.header.bannerJobNumber}}.lis",
+        "addNewlineAfterEachMessage": true,
+        "includeTotalCount": false,
+        "generatePresignedUrl": true,
+        "utfEncoding": "utf-8",
+        "writeImmediately": false
+      }
+    }
+  }
+}
